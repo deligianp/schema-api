@@ -1,0 +1,15 @@
+# Pycache directories
+__pycache__/
+
+# IDE-related
+.idea/
+
+# Virtual environment directory
+venv/
+
+# Django application migration files
+*/migrations/**
+!*/migrations/__init__.py
+
+# Django local settings
+schema_api/local_settings.py

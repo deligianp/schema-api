@@ -1,0 +1,38 @@
+# This is a template file provided in order to enable the configuration of the application in different environments
+# Copy and paste this file under the same directory, naming the pasted file as local_settings.py and configure the
+# following settings based on the Django documentation and the accompanying instructions
+
+# ------------------------------------------------------------------------
+#                   Django-specific environment settings
+# ------------------------------------------------------------------------
+
+
+# DEBUG controls whether errors are shown in browser, allowing for easier development
+# Set to True in development environments and False for environments publicly accessible
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#debug
+DEBUG = <Set to True if deployed in development/test environment, set to False if deployed in production>
+
+# Host names that the Django application can accept
+# Must be set if DEBUG is False
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#allowed-hosts
+ALLOWED_HOSTS = [<Add each allowed application host IP as a string>]
+
+# Secret key is used for cryptographic purposes and should be unique across different deployments
+# HINT: use the command `python manage.py generate_secret_key -f schema_api/local_settings.py.template` to
+# automatically complete the value below with a random string!
+# SECURITY WARNING: keep the secret key used in production secret! Do not track in git!
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#secret-key
+SECRET_KEY = <A random string used for cryptographic purposes; use python manage.py generate_key this value>
+
+# Database connection information and configuration is provided as a dictionary in DATABASES
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+DATABASES = {
+    'default': {
+        ENGINE': <Set to corresponding database driver >
+        'NAME': <Set to the name of the database>
+        'USER': <Set to the user to be used in order to connect to the database>
+        'PASSWORD': <Provide user password>
+        'HOST': <Provide IP of host where database resides>
+        'PORT': <Port to which the database listens to>
+    }
+}
