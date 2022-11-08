@@ -1,4 +1,4 @@
-# Instructions for deploying a TESK local instance
+# Instructions for deploying a local TESK instance
 
 ###### More information about TESK can be found on the official [github page](https://github.com/elixir-cloud-aai/TESK). You can find the official deployment instructions [here](https://github.com/elixir-cloud-aai/TESK/blob/master/documentation/deployment_new.md) and the helm chart used [here](https://github.com/elixir-cloud-aai/TESK/tree/master/charts/tesk).
 ###### The instructions are tested on Ubuntu 20.04 LTS with minikube, docker driver and Nodeport to expose the service.
