@@ -98,3 +98,6 @@ kubectl logs -f <pod_name>
 ```
 - You can open the Swagger UI of TESK directly to your browser with ```minikube service tesk-api```, or get the external IP of your cluster with ```minikube ip``` and the service is accessible on ```http://external_IP_of_a_node:31567/v1/tasks```.
 
+# Access service from a remote browser
+If you want to be able to access your service from a remore browser you have to configure minikube to listen on a remote network. To do that, you should start minikube with ```--listen-address=0.0.0.0``` flag and then forward one local port to a pod with ```kubectl port-forward --address 0.0.0.0 <pod_name> <port_to_forward>:<port_of_service>```.
+
