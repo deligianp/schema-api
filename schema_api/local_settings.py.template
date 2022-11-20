@@ -41,8 +41,10 @@ DATABASES = {
 #                 Application-specific environment settings
 # ------------------------------------------------------------------------
 
-SHARED_STORAGE_TYPE = <Set either to FTP, S3 or leave to None>
-
-API_URLS = {
-    'TESK': <Set to URL of underlying TESK API>
+TASK_APIS = {
+    'TES': {
+        'PROTOCOL': <File storing protocol, e.g. s3, ftp>,
+        'TASK_GET_ENDPOINT': <API endpoint on which task status can be retrieved from>,
+        'TASK_POST_ENDPOINT': <API endpoint on which new tasks can be submitted>
+    }
 }
