@@ -23,10 +23,17 @@ class ContextAPIView(APIView):
     class InputSerializer(serializers.Serializer):
         context = serializers.SlugField()
 
+    class OutputSerializer(serializers.Serializer):
+        context = serializers.SerializerMethodField(source='context_name')
+
+        def get_context(self, user):
+            return denamespace(user.username)[1]
+
     def get(self, request):
         context_manager_service = ContextManagerService(context_manager=request.user)
         contexts = context_manager_service.get_contexts()
-        return Response(data=[denamespace(context.username)[1] for context in contexts], status=status.HTTP_200_OK)
+        output_serializer = self.OutputSerializer(contexts, many=True)
+        return Response(data=output_serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request):
         input_serializer = self.InputSerializer(data=request.data)
@@ -84,14 +91,17 @@ class ContextTokenAPIView(APIView):
         title = serializers.CharField(required=False)
         expiry = serializers.DateTimeField(required=False)
 
-    class OutputSerializer(serializers.Serializer):
+    class OutputMinimalSerializer(serializers.Serializer):
         uuid = serializers.UUIDField(source='uuid_ref')
+
+    class OutputDetailedSerializer(OutputMinimalSerializer):
         title = serializers.CharField()
         hint = serializers.CharField(source='token_key')
         expiry = serializers.DateTimeField()
 
     def get(self, request, context_name):
         token_status = request.query_params.get('status', 'active').lower()
+        result_view = request.query_params.get('view', 'minimal').lower()
         context_manager_service = ContextManagerService(context_manager=request.user)
         context_name = namespace(request.user.username, context_name)
         try:
@@ -110,7 +120,14 @@ class ContextTokenAPIView(APIView):
                 'detail': f'No context with name "{context_name}" exists'
             }, status=status.HTTP_404_NOT_FOUND)
 
-        output_serializer = self.OutputSerializer(api_auth_tokens, many=True)
+        if result_view == 'full':
+            output_serializer = self.OutputDetailedSerializer(api_auth_tokens, many=True)
+        elif result_view == 'minimal':
+            output_serializer = self.OutputMinimalSerializer(api_auth_tokens, many=True)
+        else:
+            return Response(data={
+                'detail': 'Invalid value for query parameter "view". Acceptable values are: minimal, full'
+            }, status=status.HTTP_400_BAD_REQUEST)
         return Response(data=output_serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, context_name):
