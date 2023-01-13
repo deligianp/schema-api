@@ -54,7 +54,7 @@ class ContextManagerService:
     @transaction.atomic
     def register_context(self, context_name: str) -> User:
         context = User.objects.create_user(username=context_name)
-        group = Group.objects.get(name='contexts_group')
+        group = Group.objects.get(name='contexts')
         context.groups.add(group)
         ServiceProfile.objects.create(service_data=context, context_manager_profile=self.service_profile)
         return context
