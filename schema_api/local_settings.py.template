@@ -48,3 +48,5 @@ TASK_APIS = {
         'TASK_POST_ENDPOINT': <API endpoint on which new tasks can be submitted>
     }
 }
+
+USE_AUTH = <Set to True if auth module is to be used (recommended), else False>

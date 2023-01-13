@@ -15,9 +15,12 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from schema_api.settings import USE_AUTH
 
 urlpatterns = [
     path('api/', include('api.urls')),
-    path('api_auth/', include('api_auth.urls')),
     path('admin/', admin.site.urls),
 ]
+
+if USE_AUTH:
+    urlpatterns.insert(-1, path('api_auth/', include('api_auth.urls')))
