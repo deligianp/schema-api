@@ -14,7 +14,7 @@ context_managers_group = None
 contexts_group = None
 if len(required_tables.difference(set(connection.introspection.table_names()))) == 0:
     context_managers_group, _ = Group.objects.get_or_create(name='context_managers')
-    contexts_group, _ = Group.objects.get_or_create(name='contexts_group')
+    contexts_group, _ = Group.objects.get_or_create(name='contexts')
 
     content_types = ContentType.objects.all()
     context_managers_content_types = content_types.filter(
