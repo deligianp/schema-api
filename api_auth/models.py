@@ -1,13 +1,11 @@
 import uuid
 
-from django.contrib.auth.models import Group, AbstractUser, UserManager
+from django.contrib.auth.models import Group, AbstractUser
 from django.contrib.contenttypes.models import ContentType
-from django.db import models, transaction
-
+from django.db import models, transaction, connection
 # Create your models here.
 from django.db.models import Q
 from knox.models import AuthToken, User, AuthTokenManager
-from django.db import connection
 
 required_tables = {'auth_user', 'auth_group', 'auth_user_groups'}
 context_managers_group = None
