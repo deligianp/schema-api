@@ -6,11 +6,14 @@
 
 ## Requirements
 - A Kubernetes cluster version 1.9 or later (like minikube). 
-- A default storage class with RWO permissions (if you use minikube you don't have to change the default storage class).
+- A default storage class with RWO permissions (if you use minikube this requirement is already fulfilled).
 - A storage backend (ftp or s3).
 
 ## VM set up for Mac
 If you are using Mac you can easily create an Ubuntu VM with [UTM](https://mac.getutm.app). To set up the VM you can follow the instructions described on the following [video](https://www.youtube.com/watch?v=MVLbb1aMk24).
+
+## VM set up for Windows
+If you are using Windows you can either create an [Ubuntu VM](https://www.youtube.com/watch?v=dF4r_HOrvss) with VirtualBox, or install a complete [Windows subsystem for Linux (WSL)](https://ubuntu.com/wsl) by following the instructions described on the following [video](https://www.youtube.com/watch?v=wjbbl0TTMeo).
 
 ## FTP server setup
 Instructions are based on [TESK documentation](https://github.com/elixir-cloud-aai/TESK/blob/master/documentation/local_ftp.md)
