@@ -128,7 +128,7 @@ class TaskService:
         return task
 
 
-class TaskStatsService:
+class ContextService:
 
     @staticmethod
     def get_charged_tasks(context):

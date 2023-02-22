@@ -11,9 +11,8 @@ from rest_framework.views import APIView
 from api.constants import TaskStatus
 from api.models import Task
 from api.serializers import TaskSerializer
-from api.services import TaskService, TaskStatsService
+from api.services import TaskService, ContextService
 from api_auth.permissions import IsContext
-from api_auth.services import ContextService
 from schema_api.settings import USE_AUTH
 
 
