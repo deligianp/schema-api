@@ -1,11 +1,11 @@
 from typing import Iterable
 
 from django.db import transaction
+from django.db.models import Q
 
 from api.constants import TaskStatus
-from api.models import Task, Executor, Env, MountPoint, Volume, Tag
+from api.models import Task, Executor, Env
 from api.taskapis import TesRuntime
-from schema_api import settings
 
 
 class ExecutorService:
@@ -112,8 +112,11 @@ class TaskService:
         return self.task
 
     @staticmethod
-    def get_status(uuid):
-        task = Task.objects.get(uuid=uuid)
+    def get_status(uuid, context=None):
+        if context:
+            task = Task.objects.get(uuid=uuid, context=context)
+        else:
+            task = Task.objects.filter(uuid=uuid)
 
         if task.pending:
             runtime = TesRuntime()
@@ -123,3 +126,13 @@ class TaskService:
                 task.pending = False
             task.save()
         return task
+
+
+class TaskStatsService:
+
+    @staticmethod
+    def get_charged_tasks(context):
+        context_tasks = Task.objects.filter(
+            Q(status=TaskStatus.RUNNING) | Q(status=TaskStatus.COMPLETED),
+            context=context)
+        return context_tasks

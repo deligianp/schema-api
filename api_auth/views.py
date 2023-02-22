@@ -22,6 +22,7 @@ class ContextAPIView(APIView):
 
     class InputSerializer(serializers.Serializer):
         context = serializers.SlugField()
+        limits_url = serializers.URLField(required=False)
 
     class OutputSerializer(serializers.Serializer):
         context = serializers.SerializerMethodField(source='context_name')
@@ -45,9 +46,11 @@ class ContextAPIView(APIView):
 
         context_manager_service = ContextManagerService(context_manager=request.user)
         context_name = input_serializer.validated_data["context"]
+        limits_url = input_serializer.validated_data.get("limits_url", None)
         try:
             context_manager_service.register_context(
-                namespace(request.user.username, context_name)
+                namespace(request.user.username, context_name),
+                limits_url
             )
         except IntegrityError:
             # Case when context name already exists

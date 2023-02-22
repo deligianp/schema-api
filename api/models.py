@@ -2,12 +2,14 @@ import uuid as uuid
 
 from django.db import models
 from django.db.models import CheckConstraint, Q
+from knox.models import User
 
 from api.constants import TaskStatus, ErrorMessages
 from util.decorators import not_updatable
 
 
 class Task(models.Model):
+    context = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
     uuid = models.UUIDField(
         default=uuid.uuid4,
         help_text='A unique UUID for identifying a task on this API',
@@ -37,14 +39,6 @@ class Task(models.Model):
         auto_now_add=True,
         help_text='Timestamp of task being approved and getting created'
     )
-
-    # TODO: require user definition - review when authentication is set up
-    # Provide field(s) for sufficient user authentication for each task
-    # user = None
-
-    # TODO: require project name or other information, when authentication is set up
-    # Project name
-    # project = None
 
     # API address of TESK API
     # Note: The idea is that the TESK API address may change while tasks are still running on the old API. In addition,

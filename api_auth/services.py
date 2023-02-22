@@ -5,9 +5,11 @@ from typing import Tuple, Iterable
 import django.contrib.auth.models
 from django.contrib.auth.models import Group, User
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Q
 from knox.models import AuthToken
 
+from api.constants import TaskStatus
+from api.models import Task
 from api_auth.models import context_managers_group, ServiceProfile, ApiAuthToken
 
 
@@ -52,11 +54,14 @@ class ContextManagerService:
                                ServiceProfile.objects.get(service_data__username=context_manager_name)
 
     @transaction.atomic
-    def register_context(self, context_name: str) -> User:
+    def register_context(self, context_name: str, limits_url: str) -> User:
+        if not limits_url:
+            limits_url = ''
         context = User.objects.create_user(username=context_name)
         group = Group.objects.get(name='contexts')
         context.groups.add(group)
-        ServiceProfile.objects.create(service_data=context, context_manager_profile=self.service_profile)
+        ServiceProfile.objects.create(service_data=context, context_manager_profile=self.service_profile,
+                                      limits_url=limits_url)
         return context
 
     def get_contexts(self) -> QuerySet[django.contrib.auth.models.AbstractUser]:

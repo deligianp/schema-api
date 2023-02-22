@@ -39,6 +39,7 @@ class ServiceProfile(models.Model):
                                                 help_text='Reference to the context_name manager that registered this task '
                                                           'service',
                                                 on_delete=models.CASCADE)
+    limits_url = models.URLField(max_length=255)
 
 
 class ApiAuthTokenManager(AuthTokenManager):
