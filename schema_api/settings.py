@@ -99,9 +99,15 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+REST_FRAMEWORK = {
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer'
+    ]
+}
+
 REST_KNOX = {
-  'AUTH_TOKEN_CHARACTER_LENGTH': 192,
-  'TOKEN_TTL': timedelta(days=30),
+    'AUTH_TOKEN_CHARACTER_LENGTH': 192,
+    'TOKEN_TTL': timedelta(days=30),
 }
 
 # Try to find environment-specific settings in a sibling file with the name local_settings.py
