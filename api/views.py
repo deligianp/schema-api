@@ -2,6 +2,7 @@
 from django.conf import settings
 from knox.auth import TokenAuthentication
 from rest_framework import viewsets, status
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -45,13 +46,22 @@ class TaskViewSet(viewsets.ViewSet):
 
         stored_data = TaskSerializer(task).data
 
+        return Response(status=status.HTTP_201_CREATED, data=stored_data)
 
-            task_service = TaskService(**task_info)
-            try:
-                task = task_service.save()
-            except DjangoValidationError as d_ve:
-                raise DRFValidationError(d_ve.message_dict)
-            task_uuid = task.uuid
-            return Response(status=status.HTTP_201_CREATED, data={'uuid': task_uuid})
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    @action(detail=True, methods=['get'])
+    def stdout(self, request, uuid):
+        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        try:
+            task_stdout = task_service.get_task_stdout(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        return Response(status=status.HTTP_200_OK, data={'stdout': task_stdout})
+
+    @action(detail=True, methods=['get'])
+    def stderr(self, request, uuid):
+        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        try:
+            task_stderr = task_service.get_task_stderr(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        return Response(status=status.HTTP_200_OK, data={'stderr': task_stderr})
