@@ -1,126 +1,105 @@
-from collections import OrderedDict
-
+from django.core.validators import MinValueValidator
 from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
 
-from api.models import Task, Executor, Env, MountPoint, Volume, Tag
-from schema_api import settings
-from util.serializers import KVPairsField, WritableStringRelatedField, OmitEmptyValuesMixin
+from api.constants import MountPointTypes
+from api.validators import NotEqualsValidator
+from util.serializers import OmitEmptyValuesMixin, KVPairsField, ModelMemberRelatedField
 
 
-class ExecutorSerializer(OmitEmptyValuesMixin, serializers.Serializer):
-    command = serializers.ListField(child=serializers.CharField())
+class StrictSerializationMixin(serializers.Serializer):
+
+    def validate(self, attrs):
+        # pass
+        # unknown = set(self.initial_data) - set(self.fields)
+        # if unknown:
+        #     raise ValidationError("Unknown field(s): {}".format(", ".join(unknown)))
+        return attrs
+
+
+class BaseSerializer(OmitEmptyValuesMixin, StrictSerializationMixin, serializers.Serializer):
+    pass
+
+
+class ExecutorSerializer(BaseSerializer):
     image = serializers.CharField()
+    command = serializers.ListField(child=serializers.CharField(), allow_empty=False)
+    stdout = serializers.CharField(required=False)
     stderr = serializers.CharField(required=False)
     stdin = serializers.CharField(required=False)
-    stdout = serializers.CharField(required=False)
     workdir = serializers.CharField(required=False)
-
-    envs = KVPairsField(required=False)
-
-    def create(self, validated_data):
-        result = dict()
-        envs_data = validated_data.pop('envs', None)
-        result['executor'] = Executor(**validated_data)
-
-        if envs_data is not None:
-            result['envs'] = [Env(**env_data) for env_data in envs_data]
-        return result
+    env = KVPairsField(required=False, child=serializers.CharField(allow_blank=True), allow_empty=False, source='envs')
 
 
-class MountPointSerializer(serializers.Serializer):
-    filesystem_path = serializers.CharField()
-    container_path = serializers.CharField()
-    is_dir = serializers.BooleanField(required=False)
-    is_input = serializers.BooleanField(required=False)
+class MountPointSerializer(BaseSerializer):
+    name = serializers.CharField(required=False)
+    description = serializers.CharField(required=False)
+    url = serializers.CharField()
+    path = serializers.CharField()
+    type = serializers.ChoiceField(choices=MountPointTypes.choices, default=MountPointTypes.FILE)
 
-    def create(self, validated_data):
-        return MountPoint(**validated_data)
+    def to_internal_value(self, data):
+        return super(MountPointSerializer, self).to_internal_value(data)
 
 
-class TaskSerializer(OmitEmptyValuesMixin, serializers.Serializer):
+class OutputMountPointSerializer(MountPointSerializer):
+    def __init__(self, *args, **kwargs):
+        super(OutputMountPointSerializer, self).__init__(*args, **kwargs)
+
+    pass
+
+
+class InputMountPointSerializer(MountPointSerializer):
+    def __init__(self, *args, **kwargs):
+        super(InputMountPointSerializer, self).__init__(*args, **kwargs)
+
+    url = serializers.CharField(required=False)
+    content = serializers.CharField(required=False, allow_blank=True)
+
+    def validate(self, data):
+        if 'url' not in data and 'content' not in data:
+            if data['type'] == 'DIRECTORY':
+                raise ValidationError('An input "url" is required when defining a directory mountpoint.')
+            raise ValidationError(
+                detail='Either an input "url" must be provided or the "content" must be explicitly defined.'
+            )
+        if 'content' in data and data['type'] == 'DIRECTORY':
+            raise ValidationError(
+                detail='Provided content cannot be used in a directory.'
+            )
+        return super(InputMountPointSerializer, self).validate(data)
+
+
+class ResourcesSerializer(BaseSerializer):
+    cpu_cores = serializers.IntegerField(required=False,
+                                         validators=[MinValueValidator(1)])
+    preemptible = serializers.BooleanField(required=False)
+    ram_gb = serializers.FloatField(required=False,
+                                    validators=[NotEqualsValidator(0),
+                                                MinValueValidator(0)])
+    disk_gb = serializers.FloatField(required=False,
+                                     validators=[NotEqualsValidator(0),
+                                                 MinValueValidator(0)])
+    zones = serializers.ListField(child=serializers.CharField(), required=False, allow_empty=False)
+
+    def validate(self, data):
+        if len(data) == 0:
+            raise ValidationError('A "resources" definition must have at least one of the following fields: ' +
+                                  (', '.join(f'"{f}"' for f in list(self.fields.fields.keys()))) + '.')
+        return super(ResourcesSerializer, self).validate(data)
+
+
+class TaskSerializer(BaseSerializer):
+    context = serializers.CharField(source='context.username', read_only=True)
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
     description = serializers.CharField(required=False)
     status = serializers.CharField(read_only=True)
     submitted_at = serializers.DateTimeField(read_only=True)
-    volumes = WritableStringRelatedField(many=True, required=False)
-    tags = KVPairsField(required=False)
-
-    executors = ExecutorSerializer(many=True)
-
-    mount_points = MountPointSerializer(many=True, required=False)
-
-    def validate_executors(self, executors):
-        if len(executors) == 0:
-            raise serializers.ValidationError('At lease one executor must be defined')
-        return executors
-
-    def create(self, validated_data: dict):
-        result = dict()
-        executors_data = validated_data.pop('executors')
-        mount_points_data = validated_data.pop('mount_points', None)
-        volumes_data = validated_data.pop('volumes', None)
-        tags_data = validated_data.pop('tags', None)
-
-        task = Task(**validated_data)
-        result['task'] = task
-
-        # Re-instantiating the serializers because DRF things
-        executors_serializer = ExecutorSerializer(many=True)
-        executors = executors_serializer.create(executors_data)
-        result['executors'] = executors
-
-        if mount_points_data is not None:
-            mount_points_serializer = MountPointSerializer(many=True)
-            mount_points = mount_points_serializer.create(mount_points_data)
-            result['mount_points'] = mount_points
-
-        if volumes_data is not None:
-            volumes = [Volume(task=task, path=path) for path in volumes_data]
-            result['volumes'] = volumes
-
-        if tags_data is not None:
-            tags = [Tag(**tag_data) for tag_data in tags_data]
-            result['tags'] = tags
-
-        return result
-
-
-class TesExecutorSerializer(OmitEmptyValuesMixin, serializers.Serializer):
-    command = serializers.JSONField()
-    image = serializers.CharField()
-    stderr = serializers.CharField()
-    stdin = serializers.CharField()
-    stdout = serializers.CharField()
-    workdir = serializers.CharField()
-
-
-
-class TesMountPointSerializer(serializers.Serializer):
-    url = serializers.SerializerMethodField('get_url')
-    path = serializers.CharField(source='container_path')
-    type = serializers.SerializerMethodField('get_type')
-
-    def __init__(self, *args, protocol: str = None, **kwargs):
-        if protocol is None:
-            raise ValueError(
-                'Serializer keyword "protocol" for underlying file store needs to be defined during instantiation'
-            )
-        self.protocol = protocol
-        super().__init__(*args, **kwargs)
-
-    def get_url(self, instance: MountPoint):
-        return f'{self.protocol}://{instance.filesystem_path}'
-
-    def get_type(self, instance: MountPoint):
-        return 'DIR' if instance.is_dir else 'FILE'
-
-
-class TesTaskSerializer(OmitEmptyValuesMixin, serializers.Serializer):
-    name = serializers.CharField()
-    description = serializers.CharField()
-    # executors = TesExecutorSerializer(required=False, many=True)
-    # inputs = TesMountPointSerializer(required=False, many=True)
-    # outputs = TesMountPointSerializer(required=False, many=True)
-    # tags = KVPairsField(required=False)
-    # volumes = WritableStringRelatedField(required=False)
+    executors = ExecutorSerializer(many=True, allow_empty=False)
+    inputs = InputMountPointSerializer(many=True, required=False, allow_empty=False)
+    outputs = OutputMountPointSerializer(many=True, required=False, allow_empty=False)
+    resources = ResourcesSerializer(required=False, source='resourceset')
+    volumes = ModelMemberRelatedField(target_field_name='path', child=serializers.CharField(), allow_empty=False,
+                                      required=False)
+    tags = KVPairsField(required=False, child=serializers.CharField(allow_blank=True), allow_empty=False)

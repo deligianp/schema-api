@@ -1,49 +1,89 @@
 import abc
+import importlib
 import json
 from abc import ABC
-from urllib.parse import urljoin
 
 import requests
 from rest_framework import status
 
 from api.constants import TaskStatus
 from api.models import Task
-from api.serializers import TesTaskSerializer, TesExecutorSerializer, TesMountPointSerializer
+from api.serializers import TaskSerializer
 from schema_api import settings
 
 
 class AbstractTaskApi(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
-    def create_task(self, task: Task = None, executors_configurations=None, mount_points=None, volumes=None, tags=None):
+    def create_task(self, task: Task):
         pass
 
     @abc.abstractmethod
-    def get_task_by_id(self, task_id=None, task_api_get_endpoint=None):
+    def get_task_info(self, task_id):
+        pass
+
+    @abc.abstractmethod
+    def get_task_status(self, task_id):
+        pass
+
+    @abc.abstractmethod
+    def get_tasks(self):
+        pass
+
+    @abc.abstractmethod
+    def get_executor_logs(self, task_id, executor_index):
         pass
 
 
 class BaseTaskApi(AbstractTaskApi, ABC):
 
     def __init__(self, *args, **kwargs):
-        try:
-            self.name = self.Meta.name
-        except AttributeError as ae:
-            ae.args = ('\n'.join((
-                *ae.args,
-                'Name of the task execution runtime configuration in application settings must be'
-                ' defined in TaskApi\'s inner Meta class, in "name" attribute'
-            )),)
-            raise ae.with_traceback(ae.__traceback__)
-        self.post_endpoint = settings.TASK_APIS.get(self.name)['TASK_POST_ENDPOINT']
-        self.get_endpoint = settings.TASK_APIS.get(self.name)['TASK_GET_ENDPOINT']
-        self.protocol = settings.TASK_APIS.get(self.name)['PROTOCOL']
+        self.post_task_endpoint = settings.TASK_API['CREATE_TASK_ENDPOINT']
+        self.get_task_endpoint = settings.TASK_API['GET_TASK_ENDPOINT']
+        # self.protocol = settings.TASK_API['PROTOCOL']
 
-    class Meta:
+
+class TesTaskApi(BaseTaskApi):
+    class PostTaskSerializer(TaskSerializer):
         pass
 
+    def get_tasks(self):
+        return []
 
-class TesRuntime(BaseTaskApi):
+    def get_task_info(self, task_id):
+        task_content = self._get_task(task_id)
+        result = self.get_executor_logs(task_id, task_content=task_content)
+        result['status'] = self.get_task_status(task_id, task_content=task_content)
+        return result
+
+    def get_task_status(self, task_id, task_content=None):
+        if not task_content:
+            task_content = self._get_task(task_id)
+        return self.TES_SCHEMA_STATUS_MAP[task_content['state']]
+
+    def get_executor_logs(self, task_id, executor_index: int = None, task_content=None):
+        result = {}
+        if not task_content:
+            task_content = self._get_task(task_id)
+        tasks_logs = task_content.get('logs', None)
+
+        # Deeply nested code is following - shameful display
+        if tasks_logs and len(tasks_logs) > 0:
+            task_logs = tasks_logs[0]
+            executors_logs = task_logs.get('logs', None)
+            if executors_logs and len(executors_logs) > 0:
+                if executor_index and len(executors_logs) > executor_index:
+                    executor_logs = executors_logs[executor_index]
+                    result['stdout'] = executor_logs.get('stdout', '')
+                    result['stderr'] = executor_logs.get('stderr', '')
+                elif not executor_index:
+                    result['stderr'] = []
+                    result['stdout'] = []
+                    for executor_logs in executors_logs:
+                        result['stderr'].append(executor_logs.get('stderr', ''))
+                        result['stdout'].append(executor_logs.get('stdout', ''))
+        return result
+
     TES_SCHEMA_STATUS_MAP = {
         'UNKNOWN': TaskStatus.UNKNOWN,
         'INITIALIZING': TaskStatus.INITIALIZING,
@@ -56,62 +96,37 @@ class TesRuntime(BaseTaskApi):
         'CANCELED': TaskStatus.CANCELED
     }
 
-    class Meta:
-        name = 'TES'
-
-    def get_task_by_id(self, task_id=None, task_api_get_endpoint=None):
-        if task_api_get_endpoint is None:
-            task_api_get_endpoint = self.get_endpoint
-        # qualified_url = urljoin(task_api_get_endpoint, task_id)
-        qualified_url = f'{task_api_get_endpoint}/{task_id}?view=FULL'
+    def _get_task(self, task_id):
+        qualified_url = f'{self.get_task_endpoint}/{task_id}?view=FULL'
         r = requests.get(url=qualified_url)
         if r.status_code == status.HTTP_200_OK:
             response_content = json.loads(r.content)
-            return self.TES_SCHEMA_STATUS_MAP[response_content['state']]
+            return response_content
         else:
             if str(r.status_code)[0] == '4':
                 # log that request sent from schema-api was invalid
                 # potential error that must be fixed in schema-api
                 pass
-            raise RuntimeError('An error occurred when posting task to TES runtime')
+            raise RuntimeError('An error occurred when retrieving task from TES runtime')
 
-    def create_task(self, task: Task = None, executors_configurations=None, mount_points=None, volumes=None, tags=None):
-        task_data = TesTaskSerializer(task).data
+    def create_task(self, task):
+        task_data = self.PostTaskSerializer(task).data
 
-        executors_data = list()
-        for executor_configuration in executors_configurations:
-            executor = executor_configuration['executor']
-            envs = executor_configuration.get('envs', None)
-            executor_data = TesExecutorSerializer(executor).data
-            if envs is not None:
-                envs_data = {env.key: env.value for env in envs}
-                executor_data['env'] = envs_data
-            executors_data.append(executor_data)
-        task_data['executors'] = executors_data
+        # Remove fields that do not exist in TES
+        task_data.pop('uuid', None)
+        task_data.pop('submitted_at', None)
+        task_data.pop('status', None)
 
-        if mount_points is not None:
-            inputs_data = list()
-            outputs_data = list()
-            for mount_point in mount_points:
-                mount_point_data = TesMountPointSerializer(mount_point, protocol=self.protocol).data
-                inputs_data.append(mount_point_data) if mount_point.is_input else outputs_data.append(mount_point_data)
-            task_data['inputs'] = inputs_data
-            task_data['outputs'] = outputs_data
-
-        if volumes is not None:
-            volumes_data = [volume.path for volume in volumes]
-            task_data['volumes'] = volumes_data
-
-        if tags is not None:
-            tags_data = {tag.key: tag.value for tag in tags}
-            task_data['tags'] = tags_data
+        related_context = task_data.pop('context', '')
+        if related_context:
+            task_data['name'] = related_context + '.' + task_data['name']
 
         r = requests.post(
             headers={
                 'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
-            url=self.post_endpoint,
+            url=self.post_task_endpoint,
             data=json.dumps(task_data)
         )
         if r.status_code == status.HTTP_200_OK:
@@ -122,3 +137,11 @@ class TesRuntime(BaseTaskApi):
                 # log that request sent from schema-api was
                 pass
             raise RuntimeError('An error occurred when posting task to TES runtime')
+
+
+def get_task_api_class():
+    if settings.TASK_API:
+        task_api_class_module, task_api_class_name = settings.TASK_API.get('TASK_API_CLASS').rsplit('.', 1)
+        module = importlib.import_module(task_api_class_module)
+        task_api_class = getattr(module, task_api_class_name)
+        return task_api_class

@@ -5,12 +5,19 @@ class TaskStatus(models.TextChoices):
     # Note: any change in this enum will require a migration, in order to update the underlying database constraints
     # Note: removing or modifying any of these values may also impose issues for records that have the modified/deleted
     # value
-    INITIALIZING = 'INITIALIZING'
-    RUNNING = 'RUNNING'
-    ERROR = 'ERROR'
-    COMPLETED = 'COMPLETED'
-    UNKNOWN = 'UNKNOWN'
-    CANCELED = 'CANCELED'
+    SUBMITTED = 'SUBMITTED', 'SUBMITTED',
+    SCHEDULED = 'SCHEDULED', 'SCHEDULED'
+    INITIALIZING = 'INITIALIZING', 'INITIALIZING'
+    RUNNING = 'RUNNING', 'RUNNING'
+    ERROR = 'ERROR', 'ERROR'
+    COMPLETED = 'COMPLETED', 'COMPLETED'
+    UNKNOWN = 'UNKNOWN', 'UNKNOWN'
+    CANCELED = 'CANCELED', 'CANCELED'
+
+
+class MountPointTypes(models.TextChoices):
+    FILE = 'FILE', 'FILE'
+    DIRECTORY = 'DIRECTORY', 'DIRECTORY'
 
 
 class ErrorMessages:

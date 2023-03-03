@@ -1,131 +1,136 @@
+import uuid
 from typing import Iterable
 
+from django.conf import settings
 from django.db import transaction
 from django.db.models import Q
+from django.utils import timezone
 
+from api import taskapis
 from api.constants import TaskStatus
-from api.models import Task, Executor, Env
-from api.taskapis import TesRuntime
-
-
-class ExecutorService:
-
-    def __init__(self, executor: Executor = None, envs: Iterable[Env] = None, task=None):
-        self.executor = executor
-        if task is not None:
-            self.executor.task = task
-        self.envs = envs
-
-        if self.envs is not None:
-            for env in self.envs:
-                env.executor = self.executor
-
-    @transaction.atomic
-    def save(self, validate: bool = True) -> Executor:
-        if validate:
-            self.full_clean()
-            # self.executor.full_clean()
-        self.executor.save()
-        if self.envs is not None:
-            for env in self.envs:
-                env.save()
-        return self.executor
-
-    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
-        self.executor.full_clean(exclude=exclude, validate_unique=validate_unique,
-                                 validate_constraints=validate_constraints)
-        if self.envs is not None:
-            for env in self.envs:
-                env.full_clean(exclude=['executor'], validate_unique=validate_unique,
-                               validate_constraints=validate_constraints)
+from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog
 
 
 class TaskService:
 
-    def __init__(self, task: Task = None, executors=None, mount_points=None, volumes=None, tags=None):
-        self.task = task
-        if len(executors) == 0:
-            raise ValueError('At least one executor needs to be defined any task')
-        self.executors = [ExecutorService(**executor_config, task=self.task) for executor_config in executors]
-        if mount_points is not None:
-            for mount_point in mount_points:
-                mount_point.task = self.task
-        self.mount_points = mount_points
-        if volumes is not None:
-            for volume in volumes:
-                volume.task = self.task
-        self.volumes = volumes
-        if tags is not None:
-            for tag in tags:
-                tag.task = self.task
-        self.tags = tags
-
-    def full_clean(self, exclude=None, validate_unique=True, validate_constraints=True):
-        self.task.full_clean(exclude=exclude)
-        for executor in self.executors:
-            executor.full_clean(exclude=['task'], validate_unique=validate_unique,
-                                validate_constraints=validate_constraints)
-        if self.mount_points is not None:
-            for mount_point in self.mount_points:
-                mount_point.full_clean(exclude=['task'], validate_unique=validate_unique,
-                                       validate_constraints=validate_constraints)
-        if self.volumes is not None:
-            for volume in self.volumes:
-                volume.full_clean(exclude=['task'], validate_unique=validate_unique,
-                                  validate_constraints=validate_constraints)
-        if self.tags is not None:
-            for tag in self.tags:
-                tag.full_clean(exclude=['task'], validate_unique=validate_unique,
-                               validate_constraints=validate_constraints)
+    def __init__(self, context=None):
+        self.context = context
 
     @transaction.atomic
-    def save(self, validate=True):
-        # Validate
-        if validate:
-            self.full_clean(exclude=['task_id', 'address'])
+    def submit_task(self, *, name: str, executors: Iterable[Executor], **optional):
+        input_mount_points = optional.pop('inputs', None)
+        output_mount_points = optional.pop('outputs', None)
+        volumes = optional.pop('volumes', None)
+        tags = optional.pop('tags', None)
+        resource_set = optional.pop('resourceset', None)
 
-        # Call resources API/database
-        runtime = TesRuntime()
-        # task_id = runtime.create_task(task=self.task, executors=self.executors, mount_points=self.mount_points,
-        #                               volumes=self.volumes, tags=self.tags)
-        task_id = runtime.create_task(task=self.task,
-                                      executors_configurations=[
-                                          {'executor': executor_config.executor, 'envs': executor_config.envs} for
-                                          executor_config in self.executors], mount_points=self.mount_points,
-                                      volumes=self.volumes, tags=self.tags)
-        # Call runtime
-        self.task.task_id = task_id
-        self.task.address = runtime.get_endpoint
-        self.task.save()
-        for executor in self.executors:
-            executor.save(validate=False)
-        if self.mount_points is not None:
-            for mount_point in self.mount_points:
-                mount_point.save()
-        if self.volumes is not None:
-            for volume in self.volumes:
-                volume.save()
-        if self.tags is not None:
-            for tag in self.tags:
-                tag.save()
+        task = Task.objects.create(context=self.context, name=name, **optional)
 
-        return self.task
+        i = 0
+        for executor in executors:
+            envs = executor.pop('envs', None)
 
-    @staticmethod
-    def get_status(uuid, context=None):
-        if context:
-            task = Task.objects.get(uuid=uuid, context=context)
-        else:
-            task = Task.objects.filter(uuid=uuid)
+            i += 1
+            order = i
+            executor = Executor.objects.create(task=task, order=order, **executor)
 
-        if task.pending:
-            runtime = TesRuntime()
-            status = runtime.get_task_by_id(task.task_id, task_api_get_endpoint=task.address)
-            task.status = status
-            if status not in (TaskStatus.INITIALIZING, TaskStatus.RUNNING):
-                task.pending = False
+            if envs:
+                for kv_pair in envs:
+                    Env.objects.create(executor=executor, key=kv_pair['key'], value=kv_pair['value'])
+
+        if input_mount_points:
+            for mount_point in input_mount_points:
+                MountPoint.objects.create(task=task, is_input=True, **mount_point)
+        if output_mount_points:
+            for mount_point in output_mount_points:
+                MountPoint.objects.create(task=task, is_input=False, **mount_point)
+        if volumes:
+            for volume_path in volumes:
+                Volume.objects.create(task=task, path=volume_path)
+
+        if resource_set:
+            ResourceSet.objects.create(task=task, **resource_set)
+
+        if tags:
+            for kv_pair in tags:
+                Tag.objects.create(task=task, **kv_pair)
+
+        if settings.TASK_API:
+            task_api_class = taskapis.get_task_api_class()
+            task_api = task_api_class()
+
+            task_id = task_api.create_task(task)
+
+            task.task_id = task_id
+            task.status = TaskStatus.SCHEDULED
+            task.latest_update = timezone.now()
             task.save()
         return task
+
+    @transaction.atomic
+    def _check_if_update_task(self, task):
+        if task.pending and \
+                settings.TASK_API and \
+                (task.latest_update - timezone.now()).seconds > settings.TASK_API['DB_TASK_STATUS_TTL_SECONDS']:
+            task_api_class = taskapis.get_task_api_class()
+            task_api = task_api_class()
+
+            task_info = task_api.get_task_info(task.task_id)
+
+            task_status = task_info['status']
+            if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
+                task.pending = False
+            task.status = task_status
+
+            executors_stderr = task_info['stderr']
+            executors_stdout = task_info['stdout']
+            n_executors_logged = len(executors_stdout)
+            task_executors = task.executors.all().order_by('order')[:n_executors_logged].prefetch_related(
+                'executoroutputlog'
+            )
+            for i in range(n_executors_logged):
+                task_executor = task_executors[i]
+                executor_stdout = executors_stdout[i]
+                executor_stderr = executors_stderr[i]
+                try:
+                    executor_output_log = ExecutorOutputLog.objects.get(executor=task_executor)
+                except ExecutorOutputLog.DoesNotExist:
+                    executor_output_log = ExecutorOutputLog()
+                executor_output_log.stdout = executor_stdout
+                executor_output_log.stderr = executor_stderr
+                executor_output_log.executor = task_executor
+                executor_output_log.save()
+
+            task.save()
+        return task
+
+    def get_task(self, task_uuid: uuid.UUID):
+        task = Task.objects.get(context=self.context, uuid=task_uuid)
+
+        task = self._check_if_update_task(task)
+
+        return task
+
+    def get_task_stdout(self, task_uuid: uuid.UUID):
+        task = Task.objects.get(context=self.context, uuid=task_uuid)
+        task = self._check_if_update_task(task)
+
+        executors_stdout = [
+            executor_output_log.stdout for executor_output_log in ExecutorOutputLog.objects.filter(executor__task=task)
+        ]
+        return executors_stdout
+
+    def get_task_stderr(self, task_uuid: uuid.UUID):
+        task = Task.objects.get(context=self.context, uuid=task_uuid)
+        task = self._check_if_update_task(task)
+
+        executors_stderr = [
+            executor_output_log.stderr for executor_output_log in ExecutorOutputLog.objects.filter(executor__task=task)
+        ]
+        return executors_stderr
+
+    def get_tasks(self):
+        return Task.objects.filter(context=self.context)
 
 
 class ContextService:
