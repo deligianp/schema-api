@@ -27,7 +27,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'knox',
     'api_auth',
-    'api'
+    'api',
+    'drf_spectacular'
 ]
 
 MIDDLEWARE = [
@@ -102,12 +103,22 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer'
-    ]
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema'
 }
 
 REST_KNOX = {
     'AUTH_TOKEN_CHARACTER_LENGTH': 192,
     'TOKEN_TTL': timedelta(days=30),
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Schema API',
+    'DESCRIPTION': 'A REST API for the scheduling and execution of containerized tasks',
+    'VERSION': 'development',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'PREPROCESSING_HOOKS': ["documentation.swagger.hooks.preprocessing_filter_spec"]
+    # OTHER SETTINGS
 }
 
 # Try to find environment-specific settings in a sibling file with the name local_settings.py
