@@ -15,11 +15,16 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView
+
 from schema_api.settings import USE_AUTH
 
 urlpatterns = [
+    path('schema/', SpectacularAPIView.as_view(), name='schema'),
+    # Optional UI:
     path('api/', include('api.urls')),
     path('admin/', admin.site.urls),
+    path('', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
 
 if USE_AUTH:
