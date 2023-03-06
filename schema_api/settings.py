@@ -117,8 +117,12 @@ SPECTACULAR_SETTINGS = {
     'DESCRIPTION': 'A REST API for the scheduling and execution of containerized tasks',
     'VERSION': 'development',
     'SERVE_INCLUDE_SCHEMA': False,
-    'PREPROCESSING_HOOKS': ["documentation.swagger.hooks.preprocessing_filter_spec"]
-    # OTHER SETTINGS
+    'PREPROCESSING_HOOKS': ["documentation.swagger.hooks.preprocessing_filter_spec"],
+    'PARSER_WHITELIST': ['rest_framework.parsers.JSONParser'],
+    'SWAGGER_UI_SETTINGS': {
+        'defaultModelsExpandDepth': 10,
+        'defaultModelExpandDepth': 10
+    }
 }
 
 # Try to find environment-specific settings in a sibling file with the name local_settings.py
