@@ -75,14 +75,14 @@ class Task(models.Model):
         ]
 
 
-@property
-def inputs(self):
-    return self.mount_points.filter(is_input=True)
+    @property
+    def inputs(self):
+        return self.mount_points.filter(is_input=True)
 
 
-@property
-def outputs(self):
-    return self.mount_points.filter(is_input=False)
+    @property
+    def outputs(self):
+        return self.mount_points.filter(is_input=False)
 
 
 # A model modified in such way that save() method is in effect only when it is the initial save of the instance
