@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'knox',
     'api_auth',
     'api',
+    'graphene_django',
     'drf_spectacular'
 ]
 
@@ -114,6 +115,10 @@ REST_FRAMEWORK = {
 REST_KNOX = {
     'AUTH_TOKEN_CHARACTER_LENGTH': 192,
     'TOKEN_TTL': timedelta(days=30),
+}
+
+GRAPHENE = {
+    'SCHEMA': 'monitor.schema.schema'
 }
 
 SPECTACULAR_SETTINGS = {
