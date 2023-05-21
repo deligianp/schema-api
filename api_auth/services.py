@@ -1,100 +1,290 @@
-import uuid
-from datetime import timedelta, datetime
-from typing import Tuple, Iterable
+import secrets
+from datetime import datetime
+from typing import Tuple, Union
 
-import django.contrib.auth.models
-from django.contrib.auth.models import Group, User
+from cryptography.hazmat.primitives import hashes
+from django.conf import settings
 from django.db import transaction
-from django.db.models import QuerySet, Q
-from knox.models import AuthToken
+from django.db.models import QuerySet
+from django.utils import timezone
 
-from api.constants import TaskStatus
-from api.models import Task
-from api_auth.models import context_managers_group, ServiceProfile, ApiAuthToken
+from api.models import Context, Participation
+from api.services import ParticipationService
+from api_auth.models import UserProfile, ApiToken, AuthEntity
+from api_auth.constants import AuthEntityType
+from util.datetime import parse_duration
+from util.services import BaseService
 
 
-class AuthService:
+# from knox.models import AuthToken
 
-    @staticmethod
-    def get_context_managers() -> QuerySet:
-        return context_managers_group.user_set.all()
 
-    @staticmethod
-    @transaction.atomic()
-    def register_context_manager(username) -> Tuple[User, str]:
-        user = User.objects.create_user(username)
-        group = Group.objects.get(name='context_managers')
-        user.groups.add(group)
-        ServiceProfile.objects.create(service_data=user)
-        _, auth_token = AuthToken.objects.create(user, expiry=timedelta(days=365))
-        return user, auth_token
+class AuthEntityService(BaseService):
 
-    @staticmethod
-    def get_context_manager(username) -> User:
-        return AuthService.get_context_managers().get(username=username)
+    def __init__(self, parent: AuthEntity):
+        if parent is not None and parent.entity_type != AuthEntityType.APPLICATION_SERVICE:
+            raise TypeError(
+                f'AuthEntityService parent must be an AuthEntity of type "{AuthEntityType.APPLICATION_SERVICE}"')
+        self.parent = parent
 
-    @staticmethod
-    def get_context_manager_token(context_manager: User = None, username: str = None) -> str:
-        if context_manager:
-            auth_token = AuthToken.objects.get(user=context_manager)
+    # Utility protected methods
+
+    @classmethod
+    def _create_auth_entity(cls, *, username: str, entity_type: AuthEntityType, **optional):
+        auth_entity = AuthEntity(username=username, entity_type=entity_type, **optional)
+        auth_entity.full_clean()
+        auth_entity.save()
+        return auth_entity
+
+    @classmethod
+    def _get_auth_entities(cls) -> QuerySet[AuthEntity]:
+        return AuthEntity.objects.all()
+
+    @classmethod
+    def _get_auth_entity(cls, *, username: str, parent: AuthEntity) -> AuthEntity:
+        return cls._get_auth_entities().get(username=username, parent=parent)
+
+    @classmethod
+    def _update_auth_entity(cls, *, update_values: dict, auth_entity: AuthEntity = None, username: str = None,
+                            parent: AuthEntity = None) -> AuthEntity:
+        if not auth_entity:
+            auth_entity = cls._get_auth_entity(username=username, parent=parent)
+
+        auth_entity = cls._update_instance(auth_entity, **update_values)
+        auth_entity.full_clean()
+        auth_entity.save()
+        return auth_entity
+
+    # Application service management methods
+
+    @classmethod
+    @transaction.atomic
+    def create_application_service(cls, username: str) -> AuthEntity:
+        return cls._create_auth_entity(username=username, entity_type=AuthEntityType.APPLICATION_SERVICE)
+
+    @classmethod
+    def get_application_services(cls) -> QuerySet[AuthEntity]:
+        return cls._get_auth_entities().filter(entity_type=AuthEntityType.APPLICATION_SERVICE, parent=None)
+
+    @classmethod
+    def get_application_service(cls, username: str) -> AuthEntity:
+        return cls.get_application_services().get(username=username)
+
+    @classmethod
+    def update_service(cls, *, update_values: dict, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        if auth_entity is not None:
+            if auth_entity.entity_type != AuthEntityType.APPLICATION_SERVICE:
+                raise TypeError(f'AuthEntity must be of type "{AuthEntityType.APPLICATION_SERVICE}"')
         else:
-            auth_token = AuthToken.objects.get(user__username=username)
-        return auth_token.token_key
+            auth_entity = cls.get_application_service(username)
+        return cls._update_auth_entity(update_values=update_values, auth_entity=auth_entity)
+
+    @classmethod
+    def disable_application_service(cls, *, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        update_values = {
+            'is_active': False
+        }
+        return cls.update_service(update_values=update_values, auth_entity=auth_entity, username=username)
+
+    @classmethod
+    def enable_application_service(cls, *, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        update_values = {
+            'is_active': True
+        }
+        return cls.update_service(update_values=update_values, auth_entity=auth_entity, username=username)
+
+    # Superuser management methods
+
+    @classmethod
+    @transaction.atomic
+    def create_superuser(cls, username: str) -> AuthEntity:
+        return cls._create_auth_entity(username=username, entity_type=AuthEntityType.USER, is_superuser=True)
+
+    @classmethod
+    def get_superusers(cls) -> QuerySet[AuthEntity]:
+        return cls._get_auth_entities().filter(entity_type=AuthEntityType.USER, parent=None, is_superuser=True)
+
+    @classmethod
+    def get_superuser(cls, username: str) -> AuthEntity:
+        return cls.get_superusers().get(username=username)
+
+    # User management methods
+
+    @transaction.atomic
+    def create_user(self, username: str, **optional) -> AuthEntity:
+        user = self._create_auth_entity(username=username, entity_type=AuthEntityType.USER, parent=self.parent)
+
+        # Retrieving related objects arguments
+        profile_arguments = optional.pop('profile', {})
+        if 'fs_user_dir' not in profile_arguments:
+            profile_arguments['fs_user_dir'] = user.username
+
+        user_profile_service = UserProfileService(user)
+        user_profile_service.create_user_profile(**profile_arguments)
+
+        return user
+
+    def get_users(self) -> QuerySet[AuthEntity]:
+        return self._get_auth_entities().filter(entity_type=AuthEntityType.USER, parent=self.parent)
+
+    def get_user(self, username: str) -> AuthEntity:
+        return self.get_users().get(username=username)
+
+    def update_user(self, *, update_values: dict, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        if auth_entity is not None:
+            if auth_entity.entity_type != AuthEntityType.USER or auth_entity.is_superuser:
+                raise TypeError(f'AuthEntity must be of type "{AuthEntityType.USER}" without superuser privileges')
+            elif auth_entity.parent != self.parent:
+                raise TypeError(f'AuthEntity must be a child of the AuthEntityService instance\'s parent')
+        else:
+            auth_entity = self.get_user(username)
+
+        profile_arguments = update_values.pop('profile', None)
+
+        auth_entity = self._update_auth_entity(update_values=update_values, auth_entity=auth_entity)
+
+        if profile_arguments:
+            user_profile_service = UserProfileService(auth_entity)
+            user_profile_service.update_user_profile(update_values=profile_arguments)
+
+        return auth_entity
+
+    def disable_user(self, *, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        update_values = {
+            'is_active': False
+        }
+        return self.update_user(update_values=update_values, auth_entity=auth_entity, username=username)
+
+    def enable_user(self, *, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        update_values = {
+            'is_active': True
+        }
+        return self.update_user(update_values=update_values, auth_entity=auth_entity, username=username)
+
+    def change_user_fs_dir(self, fs_user_dir: str, auth_entity: AuthEntity = None, username: str = None) -> AuthEntity:
+        update_values = {
+            'profile': {
+                'fs_user_dir': fs_user_dir
+            }
+        }
+        return self.update_user(update_values=update_values, auth_entity=auth_entity, username=username)
+
+
+class UserProfileService(BaseService):
+
+    def __init__(self, user: AuthEntity):
+        if user.entity_type != AuthEntityType.USER:
+            raise TypeError(f'UserProfileService\'s AuthEntity must be of type "{AuthEntityType.USER}"')
+        self.user = user
+
+    def _validate_fs_user_dir(self, fs_user_dir: str) -> None:
+        parent = self.user.parent
+
+        if fs_user_dir != '' and UserProfile.objects.filter(user__parent=parent, fs_user_dir=fs_user_dir).exists():
+            raise ValueError(f'Provided {fs_user_dir} is not available')
+
+    def create_user_profile(self, *, fs_user_dir: str) -> UserProfile:
+        self._validate_fs_user_dir(fs_user_dir=fs_user_dir)
+
+        user_profile = UserProfile(user=self.user, fs_user_dir=fs_user_dir)
+        user_profile.full_clean()
+        user_profile.save()
+        return user_profile
+
+    def update_user_profile(self, *, update_values: dict) -> UserProfile:
+        if 'fs_user_dir' in update_values:
+            self._validate_fs_user_dir(update_values['fs_user_dir'])
+        user_profile = self.user.profile
+        user_profile = self._update_instance(user_profile, **update_values)
+        user_profile.full_clean()
+        user_profile.save()
+        return user_profile
+
+
+class ApiTokenService(BaseService):
 
     @staticmethod
-    def get_service_profile(user: User) -> ServiceProfile:
-        return ServiceProfile.objects.get(service_data=user)
+    def authenticate(token: str) -> Union[Tuple[AuthEntity, None], Tuple[None, Participation]]:
+        target_digest = ApiTokenService._hash_token(token)
+        target_key = token[:settings.TOKEN_KEY_LENGTH]
+        api_token = ApiToken.objects.filter(key=target_key).get(digest=target_digest)
+        return api_token.auth_entity, api_token.participation
 
+    def __init__(self, auth_entity: AuthEntity, context: Context = None):
+        if context is None:
+            self.auth_entity, self.participation = auth_entity, None
+        else:
+            participation_service = ParticipationService(context)
+            self.auth_entity, self.participation = None, participation_service.get_participation(auth_entity)
 
-class ContextManagerService:
+    @staticmethod
+    def _generate_token(n_bytes):
+        return secrets.token_hex(n_bytes)
 
-    def __init__(self, service_profile: ServiceProfile = None, context_manager=None, context_manager_name=None):
-        self.service_profile = service_profile or \
-                               ServiceProfile.objects.get(service_data=context_manager) or \
-                               ServiceProfile.objects.get(service_data__username=context_manager_name)
+    @staticmethod
+    def _hash_token(token):
+        b_token = bytes.fromhex(token)
+        hashing = hashes.Hash(hashes.SHA512())
+        hashing.update(b_token)
+        digest = hashing.finalize()
+        return digest.hex()
 
-    @transaction.atomic
-    def register_context(self, context_name: str, limits_url: str) -> User:
-        if not limits_url:
-            limits_url = ''
-        context = User.objects.create_user(username=context_name)
-        group = Group.objects.get(name='contexts')
-        context.groups.add(group)
-        ServiceProfile.objects.create(service_data=context, context_manager_profile=self.service_profile,
-                                      limits_url=limits_url)
-        return context
+    def _validate_expiry_after_timestamp(self, expiry: datetime, ts: datetime = timezone.now()):
+        if expiry <= ts:
+            raise ValueError(f'Expiry must be after "{ts}"')
 
-    def get_contexts(self) -> QuerySet[django.contrib.auth.models.AbstractUser]:
-        return User.objects.filter(profile__context_manager_profile=self.service_profile)
+    def issue_token(self, **optional) -> Tuple[str, ApiToken]:
+        token = ApiTokenService._generate_token(settings.TOKEN_BYTE_LENGTH)
+        key = token[:settings.TOKEN_KEY_LENGTH]
+        digest = ApiTokenService._hash_token(token)
 
-    def issue_context_token(self, context_name: str, title: str = None, expiry: datetime = None) -> str:
-        if expiry and expiry < datetime.now(expiry.tzinfo):
-            raise ValueError('Expiry timestamp of the API token must be in the future')
-        context = self.get_contexts().get(username=context_name)
-        _, token_str = ApiAuthToken.objects.create(context, title=title, expiry=expiry)
-        return token_str
+        if 'expiry' not in optional:
+            if 'duration' not in optional:
+                raise ValueError(
+                    f'Either an `expiry` timestamp or a `duration` string must be provided for issuing an API token'
+                )
+            duration = optional['duration']
+            dt = parse_duration(duration)
+            optional['created'] = timezone.now()
+            optional['expiry'] = optional['created'] + dt
+        optional.pop('duration', None)
+        api_token = ApiToken(auth_entity=self.auth_entity, participation=self.participation, key=key, digest=digest,
+                             **optional)
+        api_token.full_clean()
+        api_token.save()
+        return token, api_token
 
-    @transaction.atomic
-    def get_context_tokens(self, context_name: str) -> QuerySet:
-        context = self.get_contexts().get(username=context_name)
-        return ApiAuthToken.objects.filter(user__profile__context_manager_profile=self.service_profile, user=context)
+    def get_tokens(self) -> QuerySet[ApiToken]:
+        return ApiToken.objects.filter(auth_entity=self.auth_entity, participation=self.participation)
 
-    def get_active_context_tokens(self, context_name: str) -> QuerySet:
-        return self.get_context_tokens(context_name).filter(expiry__gte=datetime.now())
+    def get_token(self, token_uuid: str) -> ApiToken:
+        return self.get_tokens().get(uuid=token_uuid)
 
-    def get_expired_context_tokens(self, context_name: str) -> QuerySet:
-        return self.get_context_tokens(context_name).filter(expiry__lt=datetime.now())
+    def update_token(self, *, update_values: dict, api_token: ApiToken = None, token_uuid: str = None):
+        if not api_token:
+            api_token = self.get_token(token_uuid)
+        else:
+            if api_token.auth_entity != self.auth_entity or api_token.participation != self.participation:
+                raise TypeError('Referenced API token must authenticate the same entities as the '
+                                f'ApiTokenService (auth_entity: {str(self.auth_entity)}, '
+                                f'participation: {str(self.participation)})')
 
-    def get_context_token(self, context_name: str, token_uuid: uuid.UUID) -> AuthToken:
-        return self.get_context_tokens(context_name).get(uuid_ref=token_uuid)
+        if 'extend_duration' in update_values and 'expiry' not in update_values:
+            dt = parse_duration(update_values['extend_duration'])
+            update_values['expiry'] = api_token.expiry + dt
 
-    def update_context_token(self, username: str, token_uuid: uuid.UUID, **fields):
-        update_fields = {'title', 'expiry'}
-        acceptable_fields = {field: fields[field] for field in update_fields.intersection(set(fields.keys()))}
-        return self.get_context_tokens(username).filter(uuid_ref=token_uuid).update(**acceptable_fields)
+        if 'expiry' in update_values:
+            # In the case of update, also check that new expiry will be after the current time
+            self._validate_expiry_after_timestamp(update_values['expiry'], timezone.now())
+        update_values.pop('extend_duration', None)
 
-    def delete_context_token(self, username: str, token_uuid: uuid.UUID):
-        self.get_context_token(username, token_uuid).delete()
+        api_token = ApiTokenService._update_instance(api_token, **update_values)
+        api_token.full_clean()
+        api_token.save()
+        return api_token
 
-    def get_context(self, context_name: str) -> django.contrib.auth.models.AbstractUser:
-        return self.get_contexts().get(username=context_name)
+    def revoke_token(self, api_token: ApiToken = None, token_uuid: str = None):
+        update_values = {
+            'is_active': False
+        }
+        return self.update_token(update_values=update_values, api_token=api_token, token_uuid=token_uuid)

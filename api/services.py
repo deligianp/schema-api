@@ -3,12 +3,16 @@ from typing import Iterable
 
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Q
+from django.db.models import QuerySet
 from django.utils import timezone
 
 from api import taskapis
 from api.constants import TaskStatus
-from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog
+from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
+    Participation, ContextQuotas
+from api_auth.models import AuthEntity
+from api_auth.constants import AuthEntityType
+from util.services import BaseService
 
 
 class TaskService:
@@ -133,11 +137,123 @@ class TaskService:
         return Task.objects.filter(context=self.context)
 
 
+class ParticipationService:
+
+    def __init__(self, context: Context):
+        self.context = context
+
+    def add_to_context(self, user: AuthEntity) -> Participation:
+        if user.entity_type != AuthEntityType.USER:
+            raise TypeError(f'Only {AuthEntityType.USER} type AuthEntities can be added to a context')
+
+        if user.parent != self.context.owner:
+            raise ValueError(f'Referenced user\'s parent is different from the context\'s application service')
+
+        participation = Participation(user=user, context=self.context)
+        participation.full_clean()
+        participation.save()
+        return participation
+
+    def get_participations(self) -> QuerySet[Participation]:
+        return Participation.objects.filter(context=self.context)
+
+    def get_participation(self, auth_entity: AuthEntity) -> Participation:
+        return self.get_participations().get(user=auth_entity)
+
+    def remove_from_context(self, user: AuthEntity):
+        participation = Participation.objects.get(user=user, context=self.context)
+        participation.delete()
+
+
 class ContextService:
 
-    @staticmethod
-    def get_charged_tasks(context):
-        context_tasks = Task.objects.filter(
-            Q(status=TaskStatus.RUNNING) | Q(status=TaskStatus.COMPLETED),
-            context=context)
-        return context_tasks
+    def __init__(self, application_service: AuthEntity):
+        if application_service.entity_type != AuthEntityType.APPLICATION_SERVICE:
+            raise TypeError(
+                f'{type(self).__name__} depends on a User object of'
+                f' type {AuthEntityType.APPLICATION_SERVICE}. Given: {application_service.entity_type}'
+            )
+
+        self.application_service = application_service
+
+    @transaction.atomic
+    def create_context(self, *, name: str, **optional):
+        quotas = optional.pop('quotas', {})
+
+        # slugify name?
+
+        context = Context(owner=self.application_service, name=name)
+        context.full_clean()
+        context.save()
+
+        context_quotas_service = ContextQuotasService(context)
+        context_quotas_service.create_context_quotas(**quotas)
+
+        return context
+
+    def get_contexts(self) -> QuerySet:
+        return Context.objects.filter(owner=self.application_service)
+
+    def get_context(self, *, name: str) -> Context:
+        return self.get_contexts().get(name=name)
+
+    @transaction.atomic
+    def update_context(self, *, update_values: dict, context: Context = None, name: str = None) -> Context:
+        if not context:
+            context = self.get_context(name=name)
+        else:
+            if context.owner != self.application_service:
+                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
+                                 f'AuthEntity from the one used in this ContextService.')
+
+        quotas_update_values = update_values.pop('quotas', None)
+
+        if quotas_update_values:
+            context_quotas_service = ContextQuotasService(context)
+            context_quotas_service.update_context_quotas(update_values=quotas_update_values)
+        return context
+
+    def assign_user(self, user: AuthEntity, context: Context = None, name: str = None) -> Context:
+        if not context:
+            context = self.get_context(name=name)
+        else:
+            if context.owner != self.application_service:
+                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
+                                 f'AuthEntity from the one used in this ContextService.')
+
+        participation_service = ParticipationService(context)
+        participation_service.add_to_context(user)
+        return context
+
+    def remove_user(self, user: AuthEntity, context: Context = None, name: str = None) -> Context:
+        if not context:
+            context = self.get_context(name=name)
+        else:
+            if context.owner != self.application_service:
+                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
+                                 f'AuthEntity from the one used in this ContextService.')
+
+        participation_service = ParticipationService(context)
+        participation_service.remove_from_context(user)
+        return context
+
+
+class ContextQuotasService(BaseService):
+
+    def __init__(self, context: Context):
+        self.context = context
+
+    def create_context_quotas(self, **optional) -> ContextQuotas:
+        context_quotas = ContextQuotas(context=self.context, **optional)
+        context_quotas.full_clean()
+        context_quotas.save()
+        return context_quotas
+
+    def update_context_quotas(self, *, update_values: dict) -> ContextQuotas:
+        context_quotas = self.context.quotas
+
+        context_quotas = ContextQuotasService._update_instance(context_quotas, **update_values)
+        context_quotas.full_clean()
+        context_quotas.save()
+
+        return context_quotas
