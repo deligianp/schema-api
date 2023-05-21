@@ -3,8 +3,6 @@ import sys
 from django.apps import AppConfig
 from django.conf import settings
 
-from api_auth import utils
-
 
 class ApiAuthConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
