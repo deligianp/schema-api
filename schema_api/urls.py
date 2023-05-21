@@ -17,7 +17,7 @@ from django.contrib import admin
 from django.urls import path, include
 from drf_spectacular.views import SpectacularSwaggerView, SpectacularAPIView
 
-from schema_api.settings import USE_AUTH
+from django.conf import settings
 
 urlpatterns = [
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
@@ -28,5 +28,5 @@ urlpatterns = [
     path('', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
 ]
 
-if USE_AUTH:
+if settings.USE_AUTH:
     urlpatterns.insert(-1, path('api_auth/', include('api_auth.urls')))

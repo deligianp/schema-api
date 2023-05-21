@@ -1,11 +1,19 @@
 from django.urls import path
 
-from api_auth.views import ContextAPIView, ContextTokenAPIView, ContextDetailsAPIView, ContextTokenDetailsAPIView
+from api_auth.views import ContextsAPIView, ContextDetailsAPIView, UsersAPIView, UserDetailsAPIView, \
+    ContextParticipantsAPIView, ContextParticipantDetailsAPIView, ContextParticipationTokensAPIView, \
+    ContextParticipationTokenDetailsAPIView
 
 urlpatterns = [
-    path(r'contexts', ContextAPIView.as_view(), name='contexts'),
-    path(r'contexts/<context_name>', ContextDetailsAPIView.as_view(), name='context_name-details'),
-    path(r'contexts/<context_name>/tokens', ContextTokenAPIView.as_view(), name='context_name-tokens'),
-    path(r'contexts/<context_name>/tokens/<token_uuid>', ContextTokenDetailsAPIView.as_view(),
-         name='context_name-token-details')
+    path(r'users', UsersAPIView.as_view(), name='users'),
+    path(r'users/<username>', UserDetailsAPIView.as_view(), name='user-details'),
+    path(r'contexts', ContextsAPIView.as_view(), name='contexts'),
+    path(r'contexts/<name>', ContextDetailsAPIView.as_view(), name='context-details'),
+    path(r'contexts/<name>/users', ContextParticipantsAPIView.as_view(), name='context-participants'),
+    path(r'contexts/<name>/users/<username>', ContextParticipantDetailsAPIView.as_view(),
+         name='context-participant-details'),
+    path(r'contexts/<name>/users/<username>/tokens', ContextParticipationTokensAPIView.as_view(),
+         name='context-participation-tokens'),
+    path(r'contexts/<name>/users/<username>/tokens/<uuid>', ContextParticipationTokenDetailsAPIView.as_view(),
+         name='context-participation-token-details')
 ]
