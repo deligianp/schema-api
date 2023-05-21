@@ -1,10 +1,8 @@
-# Create your views here.
 from django.conf import settings
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, inline_serializer, OpenApiParameter
-from knox.auth import TokenAuthentication
-from rest_framework import viewsets, status, serializers
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
+from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -12,8 +10,7 @@ from rest_framework.response import Response
 from api.models import Task
 from api.serializers import TaskSerializer
 from api.services import TaskService
-from api_auth.permissions import IsContext
-from schema_api.settings import USE_AUTH
+from api_auth.auth import ApiTokenAuthentication
 
 
 class KnoxTokenScheme(OpenApiAuthenticationExtension):
@@ -33,8 +30,8 @@ class KnoxTokenScheme(OpenApiAuthenticationExtension):
 
 class TaskViewSet(viewsets.ViewSet):
     lookup_field = 'uuid'
-    authentication_classes = [TokenAuthentication] if USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsContext] if USE_AUTH else []
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated] if settings.USE_AUTH else []
 
     class ListTaskSerialzier(TaskSerializer):
         def get_fields(self):
@@ -158,7 +155,7 @@ class TaskViewSet(viewsets.ViewSet):
         }
     )
     def retrieve(self, request, uuid=None):
-        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.auth_entity) if settings.USE_AUTH else TaskService()
         try:
             task = task_service.get_task(uuid)
         except Task.DoesNotExist:
@@ -199,7 +196,7 @@ class TaskViewSet(viewsets.ViewSet):
         }
     )
     def list(self, request):
-        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.auth_entity) if settings.USE_AUTH else TaskService()
         tasks = task_service.get_tasks()
         task_serializer = self.ListTaskSerialzier(tasks, many=True)
         return Response(status=status.HTTP_200_OK, data=task_serializer.data)
@@ -359,7 +356,7 @@ class TaskViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = TaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.auth_entity) if settings.USE_AUTH else TaskService()
         task = task_service.submit_task(**serializer.validated_data)
 
         stored_data = TaskSerializer(task).data
@@ -420,7 +417,7 @@ class TaskViewSet(viewsets.ViewSet):
     )
     @action(detail=True, methods=['get'])
     def stdout(self, request, uuid):
-        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.auth_entity) if settings.USE_AUTH else TaskService()
         try:
             task_stdout = task_service.get_task_stdout(uuid)
         except Task.DoesNotExist:
@@ -468,7 +465,7 @@ class TaskViewSet(viewsets.ViewSet):
     )
     @action(detail=True, methods=['get'])
     def stderr(self, request, uuid):
-        task_service = TaskService(context=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.auth_entity) if settings.USE_AUTH else TaskService()
         try:
             task_stderr = task_service.get_task_stderr(uuid)
         except Task.DoesNotExist:
