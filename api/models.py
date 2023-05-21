@@ -1,14 +1,57 @@
 import uuid as uuid
 
+from django.conf import settings
 from django.db import models
 from django.db.models import CheckConstraint, Q, UniqueConstraint, F
-from knox.models import User
 
 from api.constants import TaskStatus, MountPointTypes
+from util.decorators import update_fields
+
+
+@update_fields()
+class Context(models.Model):
+    owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=(not settings.USE_AUTH))
+    name = models.SlugField(max_length=255)
+
+    class Meta:
+        constraints = [
+            CheckConstraint(check=Q(name__regex=r'^[a-zA-Z][a-zA-Z0-9_]+$'), name='context_name_format'),
+            UniqueConstraint('owner', 'name', name='context_name_unique_for_each_user')
+        ]
+
+
+@update_fields('max_tasks', 'max_cpu', 'max_ram_gb', 'max_active_tasks', 'max_process_time_seconds')
+class ContextQuotas(models.Model):
+    context = models.OneToOneField(Context, on_delete=models.CASCADE, related_name='quotas')
+    max_tasks = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['TASKS'])
+    max_cpu = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['CPU'])
+    max_ram_gb = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['RAM_GB'])
+    max_active_tasks = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['ACTIVE_TASKS'])
+    max_process_time_seconds = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['PROCESS_TIME_SECONDS'])
+
+    class Meta:
+        constraints = [
+            CheckConstraint(check=Q(max_tasks__gt=0), name='max_tasks_domain'),
+            CheckConstraint(check=Q(max_cpu__gt=0), name='max_cpu_domain'),
+            CheckConstraint(check=Q(max_ram_gb__gt=0), name='max_ram_gb_domain'),
+            CheckConstraint(check=Q(max_active_tasks__gt=0), name='max_active_tasks_domain'),
+            CheckConstraint(check=Q(max_process_time_seconds__gt=0), name='max_process_time_domain')
+        ]
+
+
+@update_fields()
+class Participation(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    context = models.ForeignKey(Context, on_delete=models.CASCADE)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint('user', 'context', name='user_context_unique')
+        ]
 
 
 class Task(models.Model):
-    context = models.ForeignKey(User, null=True, on_delete=models.CASCADE)
+    context = models.ForeignKey(Context, null=True, on_delete=models.CASCADE)
     uuid = models.UUIDField(
         default=uuid.uuid4,
         help_text='A unique UUID for identifying a task on this API',
@@ -74,11 +117,9 @@ class Task(models.Model):
             )
         ]
 
-
     @property
     def inputs(self):
         return self.mount_points.filter(is_input=True)
-
 
     @property
     def outputs(self):
