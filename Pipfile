@@ -1,0 +1,21 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+django-environ = "*"
+django = "*"
+djangorestframework = "*"
+django-filter = "*"
+graphene-django = "*"
+drf-spectacular = "*"
+requests = "*"
+cryptography = "*"
+python-dateutil = "*"
+whitenoise = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.11"
