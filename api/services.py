@@ -2,6 +2,7 @@ import uuid
 from typing import Iterable
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import QuerySet
 from django.utils import timezone
@@ -10,8 +11,9 @@ from api import taskapis
 from api.constants import TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
     Participation, ContextQuotas
-from api_auth.models import AuthEntity
 from api_auth.constants import AuthEntityType
+from api_auth.models import AuthEntity
+from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
 from util.services import BaseService
 
 
@@ -144,13 +146,16 @@ class ParticipationService:
 
     def add_to_context(self, user: AuthEntity) -> Participation:
         if user.entity_type != AuthEntityType.USER:
-            raise TypeError(f'Only {AuthEntityType.USER} type AuthEntities can be added to a context')
+            raise ApplicationError(f'Only {AuthEntityType.USER} type AuthEntities can be added to a context')
 
         if user.parent != self.context.owner:
-            raise ValueError(f'Referenced user\'s parent is different from the context\'s application service')
+            raise ApplicationError(f'Referenced user\'s parent is different from the context\'s application service')
 
         participation = Participation(user=user, context=self.context)
-        participation.full_clean()
+        try:
+            participation.full_clean()
+        except ValidationError as ve:
+            raise ApplicationErrorHelper.to_application_error(ve)
         participation.save()
         return participation
 
@@ -158,10 +163,14 @@ class ParticipationService:
         return Participation.objects.filter(context=self.context)
 
     def get_participation(self, auth_entity: AuthEntity) -> Participation:
-        return self.get_participations().get(user=auth_entity)
+        try:
+            return self.get_participations().get(user=auth_entity)
+        except Participation.DoesNotExist:
+            raise ApplicationNotFoundError(
+                f'No participation exists for user {auth_entity.username} in context {self.context.name}')
 
     def remove_from_context(self, user: AuthEntity):
-        participation = Participation.objects.get(user=user, context=self.context)
+        participation = self.get_participation(user)
         participation.delete()
 
 
@@ -169,9 +178,8 @@ class ContextService:
 
     def __init__(self, application_service: AuthEntity):
         if application_service.entity_type != AuthEntityType.APPLICATION_SERVICE:
-            raise TypeError(
-                f'{type(self).__name__} depends on a User object of'
-                f' type {AuthEntityType.APPLICATION_SERVICE}. Given: {application_service.entity_type}'
+            raise ApplicationError(
+                f'{self.__class__.__name__} depends on an AuthEntity of type {AuthEntityType.APPLICATION_SERVICE}'
             )
 
         self.application_service = application_service
@@ -183,7 +191,10 @@ class ContextService:
         # slugify name?
 
         context = Context(owner=self.application_service, name=name)
-        context.full_clean()
+        try:
+            context.full_clean()
+        except ValidationError as ve:
+            raise ApplicationErrorHelper.to_application_error(ve)
         context.save()
 
         context_quotas_service = ContextQuotasService(context)
@@ -195,7 +206,10 @@ class ContextService:
         return Context.objects.filter(owner=self.application_service)
 
     def get_context(self, *, name: str) -> Context:
-        return self.get_contexts().get(name=name)
+        try:
+            return self.get_contexts().get(name=name)
+        except Context.DoesNotExist:
+            raise ApplicationNotFoundError(f'No context exists with name {name}')
 
     @transaction.atomic
     def update_context(self, *, update_values: dict, context: Context = None, name: str = None) -> Context:
@@ -203,8 +217,10 @@ class ContextService:
             context = self.get_context(name=name)
         else:
             if context.owner != self.application_service:
-                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
-                                 f'AuthEntity from the one used in this ContextService.')
+                raise ApplicationError(
+                    f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} AuthEntity from '
+                    f'the one used in this ContextService.'
+                )
 
         quotas_update_values = update_values.pop('quotas', None)
 
@@ -218,8 +234,10 @@ class ContextService:
             context = self.get_context(name=name)
         else:
             if context.owner != self.application_service:
-                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
-                                 f'AuthEntity from the one used in this ContextService.')
+                raise ApplicationError(
+                    f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} AuthEntity from '
+                    f'the one used in this ContextService.'
+                )
 
         participation_service = ParticipationService(context)
         participation_service.add_to_context(user)
@@ -230,8 +248,10 @@ class ContextService:
             context = self.get_context(name=name)
         else:
             if context.owner != self.application_service:
-                raise ValueError(f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} '
-                                 f'AuthEntity from the one used in this ContextService.')
+                raise ApplicationError(
+                    f'Referenced context is owned by a different {AuthEntityType.APPLICATION_SERVICE} AuthEntity from '
+                    f'the one used in this ContextService.'
+                )
 
         participation_service = ParticipationService(context)
         participation_service.remove_from_context(user)
@@ -245,7 +265,10 @@ class ContextQuotasService(BaseService):
 
     def create_context_quotas(self, **optional) -> ContextQuotas:
         context_quotas = ContextQuotas(context=self.context, **optional)
-        context_quotas.full_clean()
+        try:
+            context_quotas.full_clean()
+        except ValidationError as ve:
+            raise ApplicationErrorHelper.to_application_error(ve)
         context_quotas.save()
         return context_quotas
 
@@ -253,7 +276,10 @@ class ContextQuotasService(BaseService):
         context_quotas = self.context.quotas
 
         context_quotas = ContextQuotasService._update_instance(context_quotas, **update_values)
-        context_quotas.full_clean()
+        try:
+            context_quotas.full_clean()
+        except ValidationError as ve:
+            raise ApplicationErrorHelper.to_application_error(ve)
         context_quotas.save()
 
         return context_quotas
