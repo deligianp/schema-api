@@ -5,19 +5,42 @@ from django.db import models
 from django.db.models import CheckConstraint, Q, UniqueConstraint, F
 
 from api.constants import TaskStatus, MountPointTypes
+from util.constraints import ApplicationCheckConstraint, ApplicationUniqueConstraint
 from util.decorators import update_fields
 
 
 @update_fields()
 class Context(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=(not settings.USE_AUTH))
-    name = models.SlugField(max_length=255)
+    name = models.CharField(max_length=255)
 
     class Meta:
         constraints = [
-            CheckConstraint(check=Q(name__regex=r'^[a-zA-Z][a-zA-Z0-9_]+$'), name='context_name_format'),
-            UniqueConstraint('owner', 'name', name='context_name_unique_for_each_user')
+            ApplicationCheckConstraint(
+                check=Q(name__regex=r'^' + settings.DJANGO_SLUG_PATTERN + r'$'),
+                name='context_name_format',
+                violation_error_message='Name must consist only of lowercase letters, digits and dashes, starting '
+                                        'always with non-dash characters',
+                error_context={'field': 'name'}
+            ),
+            ApplicationUniqueConstraint(
+                fields=['name'],
+                condition=Q(owner__isnull=True),
+                name='context_name_unique',
+                violation_error_message='Name is not available',
+                error_context={'field': 'name'}
+            ),
+            ApplicationUniqueConstraint(
+                fields=['name'],
+                condition=Q(owner__isnull=False),
+                name='context_name_unique_per_child',
+                violation_error_message='Name is not available',
+                error_context={'field': 'name'}
+            )
         ]
+
+    def __str__(self):
+        return self.name
 
 
 @update_fields('max_tasks', 'max_cpu', 'max_ram_gb', 'max_active_tasks', 'max_process_time_seconds')
@@ -31,12 +54,40 @@ class ContextQuotas(models.Model):
 
     class Meta:
         constraints = [
-            CheckConstraint(check=Q(max_tasks__gt=0), name='max_tasks_domain'),
-            CheckConstraint(check=Q(max_cpu__gt=0), name='max_cpu_domain'),
-            CheckConstraint(check=Q(max_ram_gb__gt=0), name='max_ram_gb_domain'),
-            CheckConstraint(check=Q(max_active_tasks__gt=0), name='max_active_tasks_domain'),
-            CheckConstraint(check=Q(max_process_time_seconds__gt=0), name='max_process_time_domain')
+            ApplicationCheckConstraint(
+                check=Q(max_tasks__gt=0),
+                name='max_tasks_domain',
+                violation_error_message='Maximum tasks must be greater than 0',
+                error_context={'field': 'max_tasks'}
+            ),
+            ApplicationCheckConstraint(
+                check=Q(max_cpu__gt=0),
+                name='max_cpu_domain',
+                violation_error_message='Maximum CPU cores must be greater than 0',
+                error_context={'field': 'max_cpu'}
+            ),
+            ApplicationCheckConstraint(
+                check=Q(max_ram_gb__gt=0),
+                name='max_ram_gb_domain',
+                violation_error_message='Maximum RAM GBs must be greater than 0',
+                error_context={'field': 'max_ram_gb'}
+            ),
+            ApplicationCheckConstraint(
+                check=Q(max_active_tasks__gt=0),
+                name='max_active_tasks_domain',
+                violation_error_message='Maximum active tasks must be greater than 0',
+                error_context={'field': 'max_active_tasks'}
+            ),
+            ApplicationCheckConstraint(
+                check=Q(max_process_time_seconds__gt=0),
+                name='max_process_time_domain',
+                violation_error_message='Maximum processing time in seconds must be greater than 0',
+                error_context={'field': 'max_process_time_seconds'}
+            )
         ]
+
+    def __str__(self):
+        return f'Quotas for context {self.context.name}'
 
 
 @update_fields()
@@ -46,8 +97,15 @@ class Participation(models.Model):
 
     class Meta:
         constraints = [
-            UniqueConstraint('user', 'context', name='user_context_unique')
+            ApplicationUniqueConstraint(
+                fields=['user', 'context'],
+                name='user_context_unique',
+                violation_error_message='Referenced user is already a participant of the referenced context'
+            )
         ]
+
+    def __str__(self):
+        return f'Participation of "{self.user.username}" in context "{self.context.name}"'
 
 
 class Task(models.Model):

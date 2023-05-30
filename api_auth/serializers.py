@@ -5,11 +5,11 @@ from rest_framework import serializers
 # Operations may be: List, Create, Details
 
 class ParticipationListSerializer(serializers.Serializer):
-    username = serializers.SlugField(source='user.username')
+    username = serializers.CharField(source='user.username')
 
 
 class UserListSerializer(serializers.Serializer):
-    username = serializers.SlugField()
+    username = serializers.CharField()
 
 
 class ParticipationCreateSerializer(UserListSerializer):
@@ -33,7 +33,7 @@ class UserUpdateSerializer(UserSerializer):
 
 
 class ContextListSerializer(serializers.Serializer):
-    name = serializers.SlugField()
+    name = serializers.CharField()
 
 
 class ContextSerializer(ContextListSerializer):

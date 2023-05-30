@@ -137,3 +137,5 @@ SQLITE_DATABASE_CONFIGURATION = {
         f'{env.str("SCHEMA_API_DB_NAME", "schema-api-db")}.sqlite3'
     ),
 }
+
+DJANGO_SLUG_PATTERN = '[a-z0-9][-a-z0-9]+'
