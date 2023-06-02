@@ -28,7 +28,7 @@ class ApiTokenAuthentication(BaseAuthentication):
         token = header[1].decode('utf-8')
         try:
             authenticated = ApiTokenService.authenticate(token)
-        except ApiToken.DoesNotExist:
+        except (ApiToken.DoesNotExist, ValueError):
             raise exceptions.AuthenticationFailed('Invalid token')
 
         if authenticated[1] is not None:
