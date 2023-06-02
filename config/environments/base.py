@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
-from config.settings.api import *
-from config.settings.api_auth import *
+
+from config.env import env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -139,3 +139,9 @@ SQLITE_DATABASE_CONFIGURATION = {
 }
 
 DJANGO_SLUG_PATTERN = '[a-z0-9][-a-z0-9]+'
+APPLICATION_SLUG_PATTERN = env.str('SCHEMA_API_SLUG_PATTERN', DJANGO_SLUG_PATTERN)
+USERNAME_SLUG_PATTERN = env.str('SCHEMA_API_USERNAME_SLUG_PATTERN', APPLICATION_SLUG_PATTERN)
+CONTEXT_NAME_SLUG_PATTERN = env.str('SCHEMA_API_USERNAME_SLUG_PATTERN', APPLICATION_SLUG_PATTERN)
+
+from config.settings.api import *
+from config.settings.api_auth import *
