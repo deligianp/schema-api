@@ -1,4 +1,4 @@
-from rest_framework import serializers, status
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -235,3 +235,17 @@ class ContextParticipationTokenDetailsAPIView(APIView):
             api_token_serializer = ApiTokenSerializer(api_token)
             output_data = api_token_serializer.data
         return Response(status=status.HTTP_202_ACCEPTED, data=output_data)
+
+    def delete(self, request, name, username, uuid):
+        application_service = request.user
+
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+
+        auth_entity_service = AuthEntityService(application_service)
+        user = auth_entity_service.get_user(username=username)
+
+        api_token_service = ApiTokenService(user, context=context)
+        api_token_service.revoke_token(token_uuid=uuid)
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
