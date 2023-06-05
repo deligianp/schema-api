@@ -45,9 +45,9 @@ class AuthEntity(AbstractBaseUser):
                 error_context={'field': 'username'}
             ),
             ApplicationCheckConstraint(
-                check=Q(username__regex='^' + settings.USERNAME_PATTERN + '$'),
+                check=Q(username__regex='^' + settings.USERNAME_SLUG_PATTERN + '$'),
                 name='username_format',
-                violation_error_message='A username must start with a character and then use any character, digit or _',
+                violation_error_message=settings.USERNAME_SLUG_PATTERN_VIOLATION_MESSAGE,
                 error_context={'field': 'username'}
             ),
             ApplicationCheckConstraint(
@@ -80,7 +80,7 @@ class AuthEntity(AbstractBaseUser):
     def __str__(self):
         prefix = f'{self.entity_type} {self.username}'
         if self.parent:
-            return prefix+f', managed by {self.parent.username}'
+            return prefix + f', managed by {self.parent.username}'
         return prefix
 
 

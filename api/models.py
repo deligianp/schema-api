@@ -17,10 +17,9 @@ class Context(models.Model):
     class Meta:
         constraints = [
             ApplicationCheckConstraint(
-                check=Q(name__regex=r'^' + settings.DJANGO_SLUG_PATTERN + r'$'),
+                check=Q(name__regex=r'^' + settings.CONTEXT_NAME_SLUG_PATTERN + r'$'),
                 name='context_name_format',
-                violation_error_message='Name must consist only of lowercase letters, digits and dashes, starting '
-                                        'always with non-dash characters',
+                violation_error_message=settings.CONTEXT_NAME_SLUG_PATTERN_VIOLATION_MESSAGE,
                 error_context={'field': 'name'}
             ),
             ApplicationUniqueConstraint(
