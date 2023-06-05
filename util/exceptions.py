@@ -119,9 +119,9 @@ class ApplicationErrorHelper:
 
 
 def convert_to_drf_validation_error(err: ValidationError):
-    DRF_NON_FIELD_ERRORS = getattr(settings, 'NON_FIELD_ERRORS_KEY', NON_FIELD_ERRORS)
+    DRF_NON_FIELD_ERRORS = settings.NON_FIELD_ERRORS_KEY
     if isinstance(err, ValidationError):
-        data = err.message_dict
+        data = err.message_dict if hasattr(err, 'message_dict') else {NON_FIELD_ERRORS: err.messages}
         if NON_FIELD_ERRORS in data:
             data[DRF_NON_FIELD_ERRORS] = data[NON_FIELD_ERRORS]
             del data[NON_FIELD_ERRORS]

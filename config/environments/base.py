@@ -1,6 +1,8 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import NON_FIELD_ERRORS
+
 from config.settings.api import *
 from config.settings.api_auth import *
 from config.env import env
@@ -144,6 +146,8 @@ SQLITE_DATABASE_CONFIGURATION = {
 # NOTE: this is not the same pattern of values accepted by Django's and DRF's SlugFields
 DJANGO_SLUG_PATTERN = '[a-z0-9][-a-z0-9]+'
 APPLICATION_SLUG_PATTERN = env.str('SCHEMA_API_SLUG_PATTERN', DJANGO_SLUG_PATTERN)
+
+NON_FIELD_ERRORS_KEY = env.str('SCHEMA_API_NON_FIELD_ERRORS_KEY', NON_FIELD_ERRORS)
 
 # Overriding/setting missing application-related settings
 
