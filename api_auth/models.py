@@ -113,7 +113,7 @@ class ApiToken(models.Model):
     digest = models.CharField(max_length=128, editable=False)
     created = models.DateTimeField(editable=False, default=timezone.now)
     expiry = models.DateTimeField()
-    is_active = models.BooleanField(default=False)
+    is_active = models.BooleanField(default=True)
 
     class Meta:
         constraints = [

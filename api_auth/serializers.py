@@ -61,6 +61,7 @@ class ApiTokenListSerializer(serializers.Serializer):
     title = serializers.CharField(required=False)
     hint = serializers.CharField(source='key')
     expiry = serializers.DateTimeField(required=False)
+    is_active = serializers.BooleanField(read_only=True)
 
 
 class ApiTokenSerializer(ApiTokenListSerializer):
