@@ -64,6 +64,10 @@ class ApiTokenListSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(read_only=True)
 
 
+class ApiTokenListQPSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(['any', 'active', 'revoked'], required=False)
+
+
 class ApiTokenSerializer(ApiTokenListSerializer):
     pass
 

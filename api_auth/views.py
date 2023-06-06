@@ -10,7 +10,7 @@ from api_auth.serializers import ContextListSerializer, ContextCreateSerializer,
     ContextUpdateSerializer, ContextSerializer, UserListSerializer, UserCreateSerializer, UserSerializer, \
     UserDetailsSerializer, UserUpdateSerializer, ParticipationListSerializer, ParticipationCreateSerializer, \
     ApiTokenListSerializer, ApiTokenCreateSerializer, ApiTokenIssuedSerializer, ApiTokenDetailsSerializer, \
-    ApiTokenUpdateSerializer, ApiTokenSerializer
+    ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer
 from api_auth.services import AuthEntityService, ApiTokenService
 
 
@@ -164,6 +164,10 @@ class ContextParticipationTokensAPIView(APIView):
     def get(self, request, name, username):
         application_service = request.user
 
+        qp_serializer = ApiTokenListQPSerializer(data=request.query_params)
+        qp_serializer.is_valid(raise_exception=True)
+        query_params = qp_serializer.validated_data
+
         context_service = ContextService(application_service)
         context = context_service.get_context(name=name)
 
@@ -172,6 +176,8 @@ class ContextParticipationTokensAPIView(APIView):
 
         api_token_service = ApiTokenService(user, context=context)
         tokens = api_token_service.get_tokens()
+        if 'status' in query_params and query_params['status'] != 'any':
+            tokens = tokens.filter(is_active=query_params['status'] == 'active')
         api_token_list_serializer = ApiTokenListSerializer(tokens, many=True)
         return Response(data=api_token_list_serializer.data, status=status.HTTP_200_OK)
 
