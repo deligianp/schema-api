@@ -10,7 +10,7 @@ from api_auth.serializers import ContextListSerializer, ContextCreateSerializer,
     ContextUpdateSerializer, ContextSerializer, UserListSerializer, UserCreateSerializer, UserSerializer, \
     UserDetailsSerializer, UserUpdateSerializer, ParticipationListSerializer, ParticipationCreateSerializer, \
     ApiTokenListSerializer, ApiTokenCreateSerializer, ApiTokenIssuedSerializer, ApiTokenDetailsSerializer, \
-    ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer
+    ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer, UserListQPSerializer
 from api_auth.services import AuthEntityService, ApiTokenService
 
 
@@ -68,9 +68,15 @@ class UsersAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     def get(self, request):
+        qp_serializer = UserListQPSerializer(data=request.query_params)
+        qp_serializer.is_valid(raise_exception=True)
+        query_params = qp_serializer.validated_data
+
         application_service = request.user
         auth_entity_service = AuthEntityService(application_service)
         users = auth_entity_service.get_users()
+        if 'status' in query_params and query_params['status'] != 'any':
+            users = users.filter(is_active=query_params['status'] == 'active')
         user_list_serializer = UserListSerializer(users, many=True)
         return Response(data=user_list_serializer.data, status=status.HTTP_200_OK)
 

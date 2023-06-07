@@ -12,6 +12,10 @@ class UserListSerializer(serializers.Serializer):
     username = serializers.CharField()
 
 
+class UserListQPSerializer(serializers.Serializer):
+    status = serializers.ChoiceField(['any', 'active', 'inactive'], required=False)
+
+
 class ParticipationCreateSerializer(UserListSerializer):
     pass
 
