@@ -13,8 +13,8 @@ from api.services import TaskService
 from api_auth.auth import ApiTokenAuthentication
 
 
-class KnoxTokenScheme(OpenApiAuthenticationExtension):
-    target_class = 'knox.auth.TokenAuthentication'
+class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
+    target_class = 'api_auth.auth.ApiTokenAuthentication'
     name = 'API token'
 
     def get_security_definition(self, auto_schema):
@@ -23,8 +23,9 @@ class KnoxTokenScheme(OpenApiAuthenticationExtension):
             'in': 'header',
             'name': 'Authorization',
             'description':
-                'Token-based authentication with required prefix `Token `.\n\ne.g. For API token of '
-                '`abcdef1234567890`, value must be `Token abcdef1234567890`.'
+                f'Token-based authentication with required prefix `{settings.AUTHORIZATION_HEADER_PREFIX} `.\n\ne.g. '
+                f'For API token of `abcdef1234567890`, value must be `{settings.AUTHORIZATION_HEADER_PREFIX} '
+                f'abcdef1234567890`.'
         }
 
 
