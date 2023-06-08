@@ -13,3 +13,6 @@ venv/
 
 # Django local settings
 schema_api/local_settings.py
+
+# Environment variables file
+.env
