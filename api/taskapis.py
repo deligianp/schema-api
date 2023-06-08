@@ -9,7 +9,7 @@ from rest_framework import status
 from api.constants import TaskStatus
 from api.models import Task
 from api.serializers import TaskSerializer
-from schema_api import settings
+from django.conf import settings
 
 
 class AbstractTaskApi(metaclass=abc.ABCMeta):
