@@ -6,10 +6,12 @@ from rest_framework import serializers
 
 class ParticipationListSerializer(serializers.Serializer):
     username = serializers.CharField(source='user.username')
+    is_active = serializers.BooleanField(source='user.is_active')
 
 
 class UserListSerializer(serializers.Serializer):
     username = serializers.CharField()
+    is_active = serializers.BooleanField()
 
 
 class UserListQPSerializer(serializers.Serializer):
@@ -17,7 +19,7 @@ class UserListQPSerializer(serializers.Serializer):
 
 
 class ParticipationCreateSerializer(UserListSerializer):
-    pass
+    is_active = None
 
 
 class UserSerializer(UserListSerializer):
