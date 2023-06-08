@@ -15,7 +15,8 @@ class UserListSerializer(serializers.Serializer):
 
 
 class UserListQPSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(['any', 'active', 'inactive'], required=False)
+    status = serializers.ChoiceField(
+        [('any', 'All users'), ('active', 'Active users'), ('inactive', 'Inactive/banned users')], required=False)
 
 
 class ParticipationCreateSerializer(UserListSerializer):
@@ -71,7 +72,9 @@ class ApiTokenListSerializer(serializers.Serializer):
 
 
 class ApiTokenListQPSerializer(serializers.Serializer):
-    status = serializers.ChoiceField(['any', 'active', 'revoked'], required=False)
+    status = serializers.ChoiceField(
+        [('any', 'All tokens'), ('active', 'Active tokens'), ('inactive', 'Revoked tokens')], required=False
+    )
 
 
 class ApiTokenSerializer(ApiTokenListSerializer):
