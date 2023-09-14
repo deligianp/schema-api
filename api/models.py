@@ -315,9 +315,9 @@ class Tag(models.Model):
 
 class ResourceSet(models.Model):
     task = models.OneToOneField(Task, on_delete=models.CASCADE)
-    cpu_cores = models.IntegerField(null=True)
-    ram_gb = models.FloatField(null=True)
-    disk_gb = models.FloatField(null=True)
+    cpu_cores = models.IntegerField(default=settings.TASK_DEFAULT_RESOURCES['CPU'])
+    ram_gb = models.FloatField(default=settings.TASK_DEFAULT_RESOURCES['RAM_GB'])
+    disk_gb = models.FloatField(default=settings.TASK_DEFAULT_RESOURCES['DISK_GB'])
     preemptible = models.BooleanField(null=True)
     zones = models.JSONField(null=True)
 
