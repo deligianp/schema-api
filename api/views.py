@@ -12,6 +12,7 @@ from api.serializers import TaskSerializer
 from api.services import TaskService
 from api_auth.auth import ApiTokenAuthentication
 from api_auth.permissions import IsUser, IsActive, IsContextMember
+from util.exceptions import ApplicationTaskQuotaError
 
 
 class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
@@ -359,11 +360,12 @@ class TaskViewSet(viewsets.ViewSet):
         serializer = TaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        task = task_service.submit_task(**serializer.validated_data)
-
-        stored_data = TaskSerializer(task).data
-
-        return Response(status=status.HTTP_201_CREATED, data=stored_data)
+        try:
+            task = task_service.submit_task(**serializer.validated_data)
+            stored_data = TaskSerializer(task).data
+            return Response(status=status.HTTP_201_CREATED, data=stored_data)
+        except ApplicationTaskQuotaError as atqe:
+            return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': str(atqe)})
 
     @extend_schema(
         summary='Get task\'s standard output',
