@@ -69,3 +69,11 @@ class UploadService:
                     'finalize': complete_url
                 }
             }
+        url = s3_target.generate_presigned_url(ClientMethod='put_object',
+                                               Params={'Bucket': bucket, 'Key': key, 'ContentLength': size},
+                                               ExpiresIn=validity_period_seconds)
+        return {
+            'type': 'simple',
+            'expiry': expiry,
+            'url': url
+        }
