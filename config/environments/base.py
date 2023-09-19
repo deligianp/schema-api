@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     'django_filters',
     'api_auth',
     'api',
+    'files',
     'graphene_django',
     'drf_spectacular'
 ]
