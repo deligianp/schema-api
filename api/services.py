@@ -11,6 +11,7 @@ from api import taskapis
 from api.constants import TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
     Participation, ContextQuotas
+from api.quotas import DefaultQuotaPolicy
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
@@ -61,7 +62,12 @@ class TaskService:
             for kv_pair in tags:
                 Tag.objects.create(task=task, **kv_pair)
 
-        if settings.TASK_API:
+        quota_policy = DefaultQuotaPolicy()
+        quota_policy.check_quotas(task)
+        task.status = TaskStatus.APPROVED
+        task.save()
+
+        if settings.TASK_API["TASK_API_CLASS"]:
             task_api_class = taskapis.get_task_api_class()
             task_api = task_api_class()
 
