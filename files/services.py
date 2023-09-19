@@ -1,6 +1,7 @@
 import datetime
 
 import boto3
+from botocore.exceptions import ClientError
 from django.conf import settings
 
 from api_auth.constants import AuthEntityType
@@ -38,6 +39,15 @@ class UploadService:
                                  verify=False,
                                  use_ssl=False
                                  )
+
+        try:
+            s3_target.head_bucket(Bucket=bucket)
+        except ClientError as ex:
+            if ex.response['Error']['Code'] == 'NoSuchBucket':
+                s3_target.create_bucket(Bucket=bucket)
+            else:
+                raise
+
         max_part_size = settings.S3['MAX_PART_SIZE_BYTES']
         if size > max_part_size:
             # Calculate sizes
