@@ -15,6 +15,18 @@ class ApplicationValidationError(ApplicationError, ValidationError):
     pass
 
 
+class ApplicationTaskQuotaError(ApplicationError):
+    pass
+
+
+class ApplicationTaskQuotaDepletedError(ApplicationTaskQuotaError):
+    pass
+
+
+class ApplicationTaskQuotaExceedingRequestError(ApplicationTaskQuotaError):
+    pass
+
+
 class ApplicationDuplicateError(ApplicationValidationError):
     pass
 
