@@ -152,17 +152,19 @@ class Task(models.Model):
                 name='status_enum'
             ),
             CheckConstraint(
-                check=Q(~Q(task_id__regex=r'^\s*$') | Q(status=TaskStatus.SUBMITTED)),
+                check=Q(
+                    ~Q(task_id__regex=r'^\s*$') | Q(status=TaskStatus.SUBMITTED) | Q(status=TaskStatus.REJECTED) | Q(
+                        status=TaskStatus.APPROVED)),
                 name='scheduled_task_task_id_required'
             ),
             CheckConstraint(
                 check=Q(
                     Q(
                         Q(status=TaskStatus.CANCELED) | Q(status=TaskStatus.COMPLETED) |
-                        Q(status=TaskStatus.ERROR), pending=False) |
+                        Q(status=TaskStatus.ERROR) | Q(status=TaskStatus.REJECTED), pending=False) |
                     Q(
                         ~Q(status=TaskStatus.CANCELED), ~Q(status=TaskStatus.COMPLETED),
-                        ~Q(status=TaskStatus.ERROR), pending=True),
+                        ~Q(status=TaskStatus.ERROR), ~Q(status=TaskStatus.REJECTED), pending=True),
                 ),
                 name='task_status_is_pending_integrity_check'
             ),
