@@ -5,6 +5,7 @@ from django.core.exceptions import NON_FIELD_ERRORS
 
 from config.settings.api import *
 from config.settings.api_auth import *
+from config.settings.files import *
 from config.env import env
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -23,6 +24,7 @@ INSTALLED_APPS = [
     'django_filters',
     'api_auth',
     'api',
+    'files',
     'graphene_django',
     'drf_spectacular'
 ]
