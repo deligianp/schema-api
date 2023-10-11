@@ -4,7 +4,8 @@ from dateutil.relativedelta import relativedelta
 
 def parse_duration(descriptor):
     match = re.match(
-        r'^((\d+) ?(years?|y) ?)?((\d+) ?(months?|m) ?)?((\d+) ?(weeks?|w) ?)?((\d+) ?(days?|d))?$',
+        r'^((\d+) ?(years?|y) ?)?((\d+) ?(months?|m) ?)?((\d+) ?(weeks?|w) ?)?((\d+) ?(days?|d) ?)?'
+        r'((\d+) ?(hours?|h))?$',
         descriptor, re.IGNORECASE
     )
     if match is None:
@@ -13,5 +14,6 @@ def parse_duration(descriptor):
     months = int(match.group(5)) if match.groups()[5] is not None else 0
     weeks = int(match.group(8)) if match.groups()[8] is not None else 0
     days = int(match.group(11)) if match.groups()[11] is not None else 0
+    hours = int(match.group(14)) if match.groups()[14] is not None else 0
 
-    return relativedelta(years=years, months=months, weeks=weeks, days=days)
+    return relativedelta(years=years, months=months, weeks=weeks, days=days, hours=hours)
