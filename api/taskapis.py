@@ -2,6 +2,7 @@ import abc
 import importlib
 import json
 from abc import ABC
+from urllib.parse import urljoin
 
 import requests
 from rest_framework import status
@@ -97,7 +98,7 @@ class TesTaskApi(BaseTaskApi):
     }
 
     def _get_task(self, task_id):
-        qualified_url = f'{self.get_task_endpoint}/{task_id}?view=FULL'
+        qualified_url = f'{urljoin(self.get_task_endpoint, task_id)}?view=FULL'
         r = requests.get(url=qualified_url)
         if r.status_code == status.HTTP_200_OK:
             response_content = json.loads(r.content)
