@@ -7,4 +7,4 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         secret_key = get_random_secret_key()
-        print(secret_key)
+        return secret_key
