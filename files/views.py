@@ -26,3 +26,17 @@ class UploadAPIView(APIView):
             **upload_input_serializer.validated_data,
             'upload_info': upload_info
         })
+
+
+class DownloadAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive] if settings.USE_AUTH else []
+
+    def get(self, request, file_path: str):
+        download_service = UploadService(request.user)
+        download_info = download_service.create_download_request(file_path)
+
+        return Response(status=status.HTTP_200_OK, data={
+            'file_path': file_path,
+            **download_info
+        })
