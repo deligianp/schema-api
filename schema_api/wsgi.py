@@ -8,9 +8,12 @@ https://docs.djangoproject.com/en/4.1/howto/deployment/wsgi/
 """
 
 import os
+from config.env import env
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'schema_api.settings')
+deployment_environment = env.str('SCHEMA_API_DEPLOYMENT', 'dev')
+"""Run administrative tasks."""
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.environments.' + deployment_environment)
 
 application = get_wsgi_application()
