@@ -10,10 +10,10 @@ from api.services import ContextService, ParticipationService
 from api_auth.auth import ApiTokenAuthentication
 from api_auth.permissions import IsApplicationService, IsActive
 from api_auth.serializers import ContextListSerializer, ContextCreateSerializer, ContextDetailsSerializer, \
-    ContextUpdateSerializer, ContextSerializer, UserListSerializer, UserCreateSerializer, UserSerializer, \
-    UserDetailsSerializer, UserUpdateSerializer, ParticipationListSerializer, ParticipationCreateSerializer, \
+    ContextUpdateSerializer, ContextSerializer, UserListSerializer, \
+    UserDetailsSerializer, UserUpdateSerializer, ParticipationListSerializer, \
     ApiTokenListSerializer, ApiTokenCreateSerializer, ApiTokenIssuedSerializer, ApiTokenDetailsSerializer, \
-    ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer, UserListQPSerializer
+    ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer, UserListQPSerializer, UserSerializer
 from api_auth.services import AuthEntityService, ApiTokenService
 
 
@@ -311,7 +311,7 @@ class UsersAPIView(APIView):
         summary='Create new user',
         description='Create a new user with the provided username, for the authenticated application service',
         tags=['Users'],
-        request=UserCreateSerializer,
+        request=UserDetailsSerializer,
         examples=[
             OpenApiExample(
                 'valid-create-user-request-0',
@@ -336,7 +336,7 @@ class UsersAPIView(APIView):
         responses={
             201: OpenApiResponse(
                 description='User successfully created',
-                response=UserSerializer,
+                response=UserDetailsSerializer,
                 examples=[
                     OpenApiExample(
                         'valid-create-user-0',
@@ -373,14 +373,14 @@ class UsersAPIView(APIView):
         }
     )
     def post(self, request):
-        serializer = UserCreateSerializer(data=request.data)
+        serializer = UserDetailsSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         application_service = request.user
         auth_entity_service = AuthEntityService(application_service)
         user = auth_entity_service.create_user(**serializer.validated_data)
 
-        user_serializer = UserSerializer(user)
+        user_serializer = UserDetailsSerializer(user)
         return Response(status=status.HTTP_201_CREATED, data=user_serializer.data)
 
 
@@ -454,7 +454,7 @@ class UserDetailsAPIView(APIView):
         responses={
             202: OpenApiResponse(
                 description='User\'s file system home directory successfully updated',
-                response=UserSerializer,
+                response=UserDetailsSerializer,
                 examples=[
                     OpenApiExample(
                         'valid-update-user-0',
@@ -490,7 +490,7 @@ class UserDetailsAPIView(APIView):
             application_service = request.user
             auth_entity_service = AuthEntityService(application_service)
             user = auth_entity_service.update_user(update_values=serializer.validated_data, username=username)
-            user_serializer = UserSerializer(user)
+            user_serializer = UserDetailsSerializer(user)
             output_data = user_serializer.data
         return Response(status=status.HTTP_202_ACCEPTED, data=output_data)
 
@@ -548,7 +548,7 @@ class ContextParticipantsAPIView(APIView):
                              description='Name of an existing context', required=True,
                              allow_blank=False, many=False, pattern=settings.CONTEXT_NAME_SLUG_PATTERN)
         ],
-        request=ParticipationCreateSerializer,
+        request=UserSerializer,
         examples=[
             OpenApiExample(
                 'valid-assign-participant-request-0',
@@ -598,7 +598,7 @@ class ContextParticipantsAPIView(APIView):
         }
     )
     def post(self, request, name):
-        serializer = ParticipationCreateSerializer(data=request.data)
+        serializer = UserSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         application_service = request.user

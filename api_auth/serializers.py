@@ -9,33 +9,24 @@ class ParticipationListSerializer(serializers.Serializer):
     is_active = serializers.BooleanField(source='user.is_active')
 
 
-class UserListSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    is_active = serializers.BooleanField()
-
-
 class UserListQPSerializer(serializers.Serializer):
     status = serializers.ChoiceField(
         [('any', 'All users'), ('active', 'Active users'), ('inactive', 'Inactive/banned users')], required=False)
 
 
-class ParticipationCreateSerializer(UserListSerializer):
-    is_active = None
+class UserSerializer(serializers.Serializer):
+    username = serializers.CharField()
 
 
-class UserSerializer(UserListSerializer):
+class UserListSerializer(UserSerializer):
+    is_active = serializers.BooleanField(required=False)
+
+
+class UserDetailsSerializer(UserListSerializer):
     fs_user_dir = serializers.CharField(required=False, source='profile.fs_user_dir')
 
 
-class UserCreateSerializer(UserSerializer):
-    pass
-
-
-class UserDetailsSerializer(UserSerializer):
-    pass
-
-
-class UserUpdateSerializer(UserSerializer):
+class UserUpdateSerializer(UserDetailsSerializer):
     username = None
 
 
