@@ -127,6 +127,13 @@ SPECTACULAR_SETTINGS = {
 
 AUTH_USER_MODEL = 'api_auth.AuthEntity'
 
+MIGRATION_MODULES = {
+    'api': 'migrations.api',
+    'api_auth': 'migrations.api_auth',
+    'files': 'migrations.files',
+    'monitor': 'migrations.monitor'
+}
+
 POSTGRES_DATABASE_CONFIGURATION = {
     'ENGINE': 'django.db.backends.postgresql',
     'USER': env.str('SCHEMA_API_DB_USER', 'schema-api'),
