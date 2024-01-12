@@ -15,8 +15,11 @@ cryptography = "*"
 python-dateutil = "*"
 whitenoise = "*"
 boto3 = "*"
+psycopg2-binary = "*"
+dj-database-url = "*"
 
 [dev-packages]
+ddt = "*"
 
 [requires]
 python_version = "3.11"
