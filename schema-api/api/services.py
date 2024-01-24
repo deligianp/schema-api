@@ -57,6 +57,9 @@ class TaskService:
 
         if resource_set:
             ResourceSet.objects.create(task=task, **resource_set)
+        else:
+            ResourceSet.objects.create(task=task)
+
 
         if tags:
             for kv_pair in tags:
