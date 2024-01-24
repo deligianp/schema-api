@@ -16,6 +16,6 @@ RUN pipenv requirements > requirements.txt && pip3 install -r requirements.txt -
 
 RUN pip3 install psycopg2-binary gunicorn uvicorn
 
-COPY . .
+COPY schema-api/ .
 
 CMD ["gunicorn", "--bind", ":8000", "-k", "uvicorn.workers.UvicornWorker", "schema_api.asgi"]
