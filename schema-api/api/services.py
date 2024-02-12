@@ -20,8 +20,9 @@ from util.services import BaseService
 
 class TaskService:
 
-    def __init__(self, context=None):
+    def __init__(self, context=None, auth_entity=None):
         self.context = context
+        self.auth_entity = auth_entity
 
     @transaction.atomic
     def submit_task(self, *, name: str, executors: Iterable[Executor], **optional):
@@ -72,7 +73,7 @@ class TaskService:
 
         if settings.TASK_API["TASK_API_CLASS"]:
             task_api_class = taskapis.get_task_api_class()
-            task_api = task_api_class()
+            task_api = task_api_class(auth_entity=self.auth_entity)
 
             task_id = task_api.create_task(task)
 

@@ -1,6 +1,7 @@
 import abc
 import importlib
 import json
+import os
 from abc import ABC
 from urllib.parse import urljoin
 
@@ -38,9 +39,10 @@ class AbstractTaskApi(metaclass=abc.ABCMeta):
 
 class BaseTaskApi(AbstractTaskApi, ABC):
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, auth_entity=None, **kwargs):
         self.post_task_endpoint = settings.TASK_API['CREATE_TASK_ENDPOINT']
         self.get_task_endpoint = settings.TASK_API['GET_TASK_ENDPOINT']
+        self.auth_entity = auth_entity
         # self.protocol = settings.TASK_API['PROTOCOL']
 
 
@@ -121,6 +123,15 @@ class TesTaskApi(BaseTaskApi):
         related_context = task_data.pop('context', '')
         if related_context:
             task_data['name'] = related_context + '.' + task_data['name']
+
+        # Namespace S3 URLs
+        for input in task_data['inputs']:
+            if 'url' in input:
+                input['url'] = os.path.join(f's3://{self.auth_entity.uuid}', input['url'])
+
+        for output in task_data['outputs']:
+            if 'url' in output:
+                output['url'] = os.path.join(f's3://{self.auth_entity.uuid}', output['url'])
 
         r = requests.post(
             headers={

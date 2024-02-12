@@ -359,7 +359,7 @@ class TaskViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = TaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.context, auth_entity=request.user) if settings.USE_AUTH else TaskService()
         try:
             task = task_service.submit_task(**serializer.validated_data)
             stored_data = TaskSerializer(task).data
