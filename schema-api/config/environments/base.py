@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'api_auth',
+    'quotas',
     'api',
     'files',
     'graphene_django',
@@ -131,7 +132,8 @@ MIGRATION_MODULES = {
     'api': 'migrations.api',
     'api_auth': 'migrations.api_auth',
     'files': 'migrations.files',
-    'monitor': 'migrations.monitor'
+    'monitor': 'migrations.monitor',
+    'quotas': 'migrations.quotas'
 }
 
 POSTGRES_DATABASE_CONFIGURATION = {
