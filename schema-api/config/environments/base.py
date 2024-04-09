@@ -23,6 +23,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_filters',
     'api_auth',
+    'quotas',
     'api',
     'files',
     'graphene_django',
