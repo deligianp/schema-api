@@ -1,5 +1,7 @@
 from config.env import env
 
+DISABLE_TASK_SCHEDULING = env.bool('SCHEMA_API_DISABLE_TASK_SCHEDULING', False)
+
 TASK_API = {
     'TASK_API_CLASS': env.str('SCHEMA_API_TASK_API_CLASS', None),
     'GET_TASK_ENDPOINT': env.str('SCHEMA_API_TASK_API_GET_ENDPOINT', None),

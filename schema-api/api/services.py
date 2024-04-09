@@ -71,7 +71,7 @@ class TaskService:
         task.status = TaskStatus.APPROVED
         task.save()
 
-        if settings.TASK_API["TASK_API_CLASS"]:
+        if settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
             task_api_class = taskapis.get_task_api_class()
             task_api = task_api_class(auth_entity=self.auth_entity)
 
