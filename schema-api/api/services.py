@@ -10,10 +10,11 @@ from django.utils import timezone
 from api import taskapis
 from api.constants import TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
-    Participation, ContextQuotas
-from api.quotas import DefaultQuotaPolicy
+    Participation
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
+from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
+from quotas.services import QuotasService
 from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
 from util.services import BaseService
 
@@ -66,8 +67,12 @@ class TaskService:
             for kv_pair in tags:
                 Tag.objects.create(task=task, **kv_pair)
 
-        quota_policy = DefaultQuotaPolicy()
-        quota_policy.check_quotas(task)
+        quotas_service = QuotasService(task.context, task.user)
+        context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
+        RequestedResourcesQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
+        TasksQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
+        ActiveResourcesDbQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
+
         task.status = TaskStatus.APPROVED
         task.save()
 
@@ -195,9 +200,7 @@ class ContextService:
         self.application_service = application_service
 
     @transaction.atomic
-    def create_context(self, *, name: str, **optional):
-        quotas = optional.pop('quotas', {})
-
+    def create_context(self, *, name: str):
         # slugify name?
 
         context = Context(owner=self.application_service, name=name)
@@ -206,9 +209,6 @@ class ContextService:
         except ValidationError as ve:
             raise ApplicationErrorHelper.to_application_error(ve)
         context.save()
-
-        context_quotas_service = ContextQuotasService(context)
-        context_quotas_service.create_context_quotas(**quotas)
 
         return context
 
@@ -266,30 +266,3 @@ class ContextService:
         participation_service = ParticipationService(context)
         participation_service.remove_from_context(user)
         return context
-
-
-class ContextQuotasService(BaseService):
-
-    def __init__(self, context: Context):
-        self.context = context
-
-    def create_context_quotas(self, **optional) -> ContextQuotas:
-        context_quotas = ContextQuotas(context=self.context, **optional)
-        try:
-            context_quotas.full_clean()
-        except ValidationError as ve:
-            raise ApplicationErrorHelper.to_application_error(ve)
-        context_quotas.save()
-        return context_quotas
-
-    def update_context_quotas(self, *, update_values: dict) -> ContextQuotas:
-        context_quotas = self.context.quotas
-
-        context_quotas = ContextQuotasService._update_instance(context_quotas, **update_values)
-        try:
-            context_quotas.full_clean()
-        except ValidationError as ve:
-            raise ApplicationErrorHelper.to_application_error(ve)
-        context_quotas.save()
-
-        return context_quotas
