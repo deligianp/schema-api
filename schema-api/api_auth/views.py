@@ -1,3 +1,5 @@
+import logging
+
 from django.conf import settings
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
@@ -15,6 +17,10 @@ from api_auth.serializers import ContextListSerializer, ContextCreateSerializer,
     ApiTokenListSerializer, ApiTokenCreateSerializer, ApiTokenIssuedSerializer, ApiTokenDetailsSerializer, \
     ApiTokenUpdateSerializer, ApiTokenSerializer, ApiTokenListQPSerializer, UserListQPSerializer, UserSerializer
 from api_auth.services import AuthEntityService, ApiTokenService
+from quotas.serializers import QuotasSerializer
+from quotas.services import QuotasService
+
+logger = logging.getLogger(__name__)
 
 
 class ContextsAPIView(APIView):
@@ -263,6 +269,47 @@ class ContextDetailsAPIView(APIView):
         return Response(status=status.HTTP_202_ACCEPTED, data=output_data)
 
 
+class ContextQuotasAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication]
+    permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
+
+    def get(self, request, name):
+        application_service = request.user
+        logger.info(f'Request of application service "{application_service.username}" to retrieve quotas for context '
+                    f'named "{name}"')
+
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+        quotas_service = QuotasService(context)
+        quotas = quotas_service.get_quotas()
+
+        quotas_serializer = QuotasSerializer(quotas)
+        return Response(status=status.HTTP_200_OK, data=quotas_serializer.data)
+
+    def patch(self, request, name):
+        application_service = request.user
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+
+        quotas_serializer = QuotasSerializer(data=request.data)
+        quotas_serializer.is_valid(raise_exception=True)
+
+        quotas_service = QuotasService(context)
+        quotas = quotas_service.set_quotas(**quotas_serializer.validated_data)
+
+        quotas_serializer = QuotasSerializer(quotas)
+        return Response(status=status.HTTP_202_ACCEPTED, data=quotas_serializer.data)
+
+    def delete(self, request, name):
+        application_service = request.user
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+        quotas_service = QuotasService(context)
+        quotas_service.unset_quotas()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
 class UsersAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication]
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
@@ -290,7 +337,7 @@ class UsersAPIView(APIView):
                 ]
             ),
             400: OpenApiResponse(
-                description= 'Bad request - potentially invalid query parameters'
+                description='Bad request - potentially invalid query parameters'
             )
         }
     )
@@ -674,6 +721,60 @@ class ContextParticipantDetailsAPIView(APIView):
 
         context_details_serializer = ContextDetailsSerializer(context)
         return Response(status=status.HTTP_204_NO_CONTENT, data=context_details_serializer.data)
+
+
+class ContextParticipantQuotasAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication]
+    permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
+
+    def get(self, request, name, username):
+        application_service = request.user
+        logger.info(f'Request of application service "{application_service.username}" to retrieve quotas for user '
+                    f'{username}, participating in context named "{name}"')
+
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+
+        auth_entity_service = AuthEntityService(application_service)
+        user = auth_entity_service.get_user(username=username)
+
+        quotas_service = QuotasService(context, user)
+        quotas = quotas_service.get_quotas()
+
+        quotas_serializer = QuotasSerializer(quotas)
+        return Response(status=status.HTTP_200_OK, data=quotas_serializer.data)
+
+    def patch(self, request, name, username):
+        application_service = request.user
+
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+
+        auth_entity_service = AuthEntityService(application_service)
+        user = auth_entity_service.get_user(username=username)
+
+        quotas_serializer = QuotasSerializer(data=request.data)
+        quotas_serializer.is_valid(raise_exception=True)
+
+        quotas_service = QuotasService(context, user)
+        quotas = quotas_service.set_quotas(**quotas_serializer.validated_data)
+
+        quotas_serializer = QuotasSerializer(quotas)
+        return Response(status=status.HTTP_202_ACCEPTED, data=quotas_serializer.data)
+
+    def delete(self, request, name, username):
+        application_service = request.user
+
+        context_service = ContextService(application_service)
+        context = context_service.get_context(name=name)
+
+        auth_entity_service = AuthEntityService(application_service)
+        user = auth_entity_service.get_user(username=username)
+
+        quotas_service = QuotasService(context, user)
+        quotas = quotas_service.unset_quotas()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class ContextParticipationTokensAPIView(APIView):

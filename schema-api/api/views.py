@@ -6,12 +6,15 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from api.models import Task
 from api.serializers import TaskSerializer
 from api.services import TaskService
 from api_auth.auth import ApiTokenAuthentication
 from api_auth.permissions import IsUser, IsActive, IsContextMember
+from quotas.serializers import QuotasSerializer
+from quotas.services import QuotasService
 from util.exceptions import ApplicationTaskQuotaError
 
 
@@ -359,7 +362,8 @@ class TaskViewSet(viewsets.ViewSet):
     def create(self, request):
         serializer = TaskSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        task_service = TaskService(context=request.context, auth_entity=request.user) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.context,
+                                   auth_entity=request.user) if settings.USE_AUTH else TaskService()
         try:
             task = task_service.submit_task(**serializer.validated_data)
             stored_data = TaskSerializer(task).data
@@ -475,3 +479,22 @@ class TaskViewSet(viewsets.ViewSet):
         except Task.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
         return Response(status=status.HTTP_200_OK, data={'stderr': task_stderr})
+
+
+class UserQuotasAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+
+    def get(self, request):
+        context = request.context
+        user = request.user
+
+        quotas_service = QuotasService(context, user=user)
+        context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
+
+        data = {
+            'context': QuotasSerializer(context_quotas).data,
+            'participation': QuotasSerializer(participation_quotas).data
+        }
+
+        return Response(status=status.HTTP_200_OK, data=data)
