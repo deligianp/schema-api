@@ -42,53 +42,6 @@ class Context(models.Model):
         return self.name
 
 
-@update_fields('max_tasks', 'max_cpu', 'max_ram_gb', 'max_active_tasks', 'max_process_time_seconds')
-class ContextQuotas(models.Model):
-    context = models.OneToOneField(Context, on_delete=models.CASCADE, related_name='quotas')
-    max_tasks = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['TASKS'])
-    max_cpu = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['CPU'])
-    max_ram_gb = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['RAM_GB'])
-    max_active_tasks = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['ACTIVE_TASKS'])
-    max_process_time_seconds = models.IntegerField(default=settings.CONTEXT_MINIMUM_RESOURCES['PROCESS_TIME_SECONDS'])
-
-    class Meta:
-        constraints = [
-            ApplicationCheckConstraint(
-                check=Q(max_tasks__gt=0),
-                name='max_tasks_domain',
-                violation_error_message='Maximum tasks must be greater than 0',
-                error_context={'field': 'max_tasks'}
-            ),
-            ApplicationCheckConstraint(
-                check=Q(max_cpu__gt=0),
-                name='max_cpu_domain',
-                violation_error_message='Maximum CPU cores must be greater than 0',
-                error_context={'field': 'max_cpu'}
-            ),
-            ApplicationCheckConstraint(
-                check=Q(max_ram_gb__gt=0),
-                name='max_ram_gb_domain',
-                violation_error_message='Maximum RAM GBs must be greater than 0',
-                error_context={'field': 'max_ram_gb'}
-            ),
-            ApplicationCheckConstraint(
-                check=Q(max_active_tasks__gt=0),
-                name='max_active_tasks_domain',
-                violation_error_message='Maximum active tasks must be greater than 0',
-                error_context={'field': 'max_active_tasks'}
-            ),
-            ApplicationCheckConstraint(
-                check=Q(max_process_time_seconds__gt=0),
-                name='max_process_time_domain',
-                violation_error_message='Maximum processing time in seconds must be greater than 0',
-                error_context={'field': 'max_process_time_seconds'}
-            )
-        ]
-
-    def __str__(self):
-        return f'Quotas for context {self.context.name}'
-
-
 @update_fields()
 class Participation(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
