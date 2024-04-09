@@ -108,7 +108,8 @@ class Participation(models.Model):
 
 
 class Task(models.Model):
-    context = models.ForeignKey(Context, null=True, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.SET_NULL)
+    context = models.ForeignKey(Context, null=True, on_delete=models.SET_NULL)
     uuid = models.UUIDField(
         default=uuid.uuid4,
         help_text='A unique UUID for identifying a task on this API',

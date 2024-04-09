@@ -15,7 +15,6 @@ from api.quotas import DefaultQuotaPolicy
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
-from util.services import BaseService
 
 
 class TaskService:
@@ -32,7 +31,7 @@ class TaskService:
         tags = optional.pop('tags', None)
         resource_set = optional.pop('resourceset', None)
 
-        task = Task.objects.create(context=self.context, name=name, **optional)
+        task = Task.objects.create(context=self.context, user=self.auth_entity, name=name, **optional)
 
         i = 0
         for executor in executors:
@@ -60,7 +59,6 @@ class TaskService:
             ResourceSet.objects.create(task=task, **resource_set)
         else:
             ResourceSet.objects.create(task=task)
-
 
         if tags:
             for kv_pair in tags:
