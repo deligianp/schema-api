@@ -132,7 +132,8 @@ MIGRATION_MODULES = {
     'api': 'migrations.api',
     'api_auth': 'migrations.api_auth',
     'files': 'migrations.files',
-    'monitor': 'migrations.monitor'
+    'monitor': 'migrations.monitor',
+    'quotas': 'migrations.quotas'
 }
 
 POSTGRES_DATABASE_CONFIGURATION = {
