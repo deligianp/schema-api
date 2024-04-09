@@ -3,6 +3,7 @@ from django.conf import settings
 from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from rest_framework import serializers, status
 from rest_framework.views import exception_handler
+from quotas.exceptions import custom_exception_handler as quotas_exception_handler, QuotaViolationError
 
 from util.constraints import ApplicationUniqueConstraint
 
@@ -150,6 +151,8 @@ def custom_exception_handler(exc: Exception, context):
             response.status_code = status.HTTP_409_CONFLICT
     elif issubclass(type(exc), ApplicationNotFoundError):
         response = exception_handler(rest_framework.exceptions.NotFound(detail=exc), context)
+    elif issubclass(type(exc), QuotaViolationError):
+        response = quotas_exception_handler(exc, context)
     else:
         response = exception_handler(exc, context)
     return response
