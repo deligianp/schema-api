@@ -17,6 +17,7 @@ whitenoise = "*"
 boto3 = "*"
 psycopg2-binary = "*"
 dj-database-url = "*"
+django-cors-headers = "*"
 
 [dev-packages]
 ddt = "*"
