@@ -82,3 +82,6 @@ if LOGGING_CONF["FILES"]["DIRECTORY"]:
     }
     LOGGING['loggers']['']['handlers'].extend(['file', 'error-file'])
     LOGGING['loggers']['django']['handlers'].extend(['file', 'error-file'])
+
+MAX_PAGINATION_LIMIT = env.int('SCHEMA_API_MAX_PAGINATION_LIMIT', 100)
+DEFAULT_PAGINATION_LIMIT = env.int('SCHEMA_API_DEFAULT_PAGINATION_LIMIT', 50)
