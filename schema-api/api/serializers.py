@@ -103,3 +103,24 @@ class TaskSerializer(BaseSerializer):
     volumes = ModelMemberRelatedField(target_field_name='path', child=serializers.CharField(), allow_empty=False,
                                       required=False)
     tags = KVPairsField(required=False, child=serializers.CharField(allow_blank=True), allow_empty=False)
+
+
+class TasksBasicListSerializer(serializers.Serializer):
+    uuid = serializers.UUIDField(read_only=True)
+    name = serializers.CharField()
+    status = serializers.CharField(read_only=True)
+
+
+class TasksDetailedListSerializer(TasksBasicListSerializer):
+    context = serializers.CharField(source="context.name", read_only=True)
+    submitted_at = serializers.DateTimeField(read_only=True)
+
+
+class TasksFullListSerializer(TasksDetailedListSerializer):
+    description = serializers.CharField()
+
+
+class TasksListQPSerializer(serializers.Serializer):
+    view = serializers.ChoiceField(('basic', 'detailed', 'full'), required=False, default='basic')
+
+
