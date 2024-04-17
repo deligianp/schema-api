@@ -1,21 +1,30 @@
+import logging
+
 from django.conf import settings
+from django_filters import rest_framework as filters
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.filtersets import TaskFilter
 from api.models import Task
-from api.serializers import TaskSerializer
+from api.serializers import TaskSerializer, TasksListQPSerializer, TasksBasicListSerializer, \
+    TasksDetailedListSerializer, TasksFullListSerializer
 from api.services import TaskService
 from api_auth.auth import ApiTokenAuthentication
 from api_auth.permissions import IsUser, IsActive, IsContextMember
 from quotas.serializers import QuotasSerializer
 from quotas.services import QuotasService
 from util.exceptions import ApplicationTaskQuotaError
+from util.paginators import ApplicationPagination
+
+logger = logging.getLogger(__name__)
 
 
 class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
@@ -498,3 +507,29 @@ class UserQuotasAPIView(APIView):
         }
 
         return Response(status=status.HTTP_200_OK, data=data)
+
+
+class TasksListAPIView(ListAPIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+    pagination_class = ApplicationPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = TaskFilter
+
+    def get_queryset(self):
+        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
+        return task_service.get_tasks()
+
+    def get_serializer_class(self):
+        task_query_params_serializer = TasksListQPSerializer(data=self.request.query_params.dict())
+        task_query_params_serializer.is_valid(raise_exception=True)
+        query_params = task_query_params_serializer.validated_data
+
+        if query_params['view'] == 'basic':
+            return TasksBasicListSerializer
+        elif query_params['view'] == 'detailed':
+            return TasksDetailedListSerializer
+        else:
+            return TasksFullListSerializer
+
+

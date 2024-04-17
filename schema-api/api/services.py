@@ -148,7 +148,7 @@ class TaskService:
         ]
         return executors_stderr
 
-    def get_tasks(self):
+    def get_tasks(self)->QuerySet[Task]:
         return Task.objects.filter(context=self.context)
 
 
