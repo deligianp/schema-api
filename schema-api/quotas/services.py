@@ -80,12 +80,14 @@ class QuotasService:
             try:
                 quotas = ParticipationQuotas.objects.get(participation__context=self.context,
                                                          participation__user=self.user)
-                quotas.delete()
+                quotas.unset()
+                quotas.save()
             except ParticipationQuotas.DoesNotExist:
                 pass
         else:
             try:
                 quotas = self.context.quotas
-                quotas.delete()
+                quotas.unset()
+                quotas.save()
             except ContextQuotas.DoesNotExist:
                 pass
