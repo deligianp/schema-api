@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from quotas.serializers import ContextQuotasSerializer
+
 
 # Serializer naming convention: <ObjectType><Operation>Serializer
 # Operations may be: List, Create, Details
@@ -35,11 +37,7 @@ class ContextListSerializer(serializers.Serializer):
 
 
 class ContextSerializer(ContextListSerializer):
-    max_tasks = serializers.IntegerField(required=False, source='quotas.max_tasks')
-    max_ram_gb = serializers.IntegerField(required=False, source='quotas.max_ram_gb')
-    max_active_tasks = serializers.IntegerField(required=False, source='quotas.max_active_tasks')
-    max_cpu = serializers.IntegerField(required=False, source='quotas.max_cpu')
-    max_process_time_seconds = serializers.IntegerField(required=False, source='quotas.max_process_time_seconds')
+    quotas = ContextQuotasSerializer(read_only=True)
 
 
 class ContextCreateSerializer(ContextSerializer):

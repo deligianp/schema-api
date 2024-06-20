@@ -108,7 +108,7 @@ class ContextsAPIView(APIView):
         }
     )
     def post(self, request):
-        serializer = ContextCreateSerializer(data=request.data)
+        serializer = ContextSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         application_service = request.user
