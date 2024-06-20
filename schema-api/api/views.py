@@ -7,7 +7,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
-from rest_framework.generics import ListAPIView
+from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -509,7 +509,7 @@ class UserQuotasAPIView(APIView):
         return Response(status=status.HTTP_200_OK, data=data)
 
 
-class TasksListAPIView(ListAPIView):
+class TasksListCreateAPIView(ListCreateAPIView):
     authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
     permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
     pagination_class = ApplicationPagination
@@ -521,15 +521,69 @@ class TasksListAPIView(ListAPIView):
         return task_service.get_tasks()
 
     def get_serializer_class(self):
-        task_query_params_serializer = TasksListQPSerializer(data=self.request.query_params.dict())
-        task_query_params_serializer.is_valid(raise_exception=True)
-        query_params = task_query_params_serializer.validated_data
+        if self.request.method == 'GET':
+            task_query_params_serializer = TasksListQPSerializer(data=self.request.query_params.dict())
+            task_query_params_serializer.is_valid(raise_exception=True)
+            query_params = task_query_params_serializer.validated_data
 
-        if query_params['view'] == 'basic':
-            return TasksBasicListSerializer
-        elif query_params['view'] == 'detailed':
-            return TasksDetailedListSerializer
-        else:
-            return TasksFullListSerializer
+            if query_params['view'] == 'basic':
+                return TasksBasicListSerializer
+            elif query_params['view'] == 'detailed':
+                return TasksDetailedListSerializer
+            else:
+                return TasksFullListSerializer
+        return TaskSerializer
+
+    def post(self, request, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        task_service = TaskService(context=request.context,
+                                   auth_entity=request.user) if settings.USE_AUTH else TaskService()
+        task = task_service.submit_task(**serializer.validated_data)
+        stored_data = TaskSerializer(task).data
+        return Response(status=status.HTTP_201_CREATED, data=stored_data)
+
+class TaskRetrieveAPIView(RetrieveAPIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+    lookup_field = 'uuid'
+    serializer_class = TaskSerializer
+
+    def get_queryset(self):
+        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
+        return task_service.get_tasks()
+    #
+    # def get(self, request, uuid=None):
+    #     task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+    #     try:
+    #         task = task_service.get_task(uuid)
+    #     except Task.DoesNotExist:
+    #         return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+    #     task_serializer = TaskSerializer(task)
+    #     return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+
+class TaskStdoutAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+
+    def get(self, request, uuid):
+        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        try:
+            task_stdout = task_service.get_task_stdout(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        return Response(status=status.HTTP_200_OK, data={'stdout': task_stdout})
 
 
+class TaskStderrAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+
+    def get(self, request, uuid):
+        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        try:
+            task_stderr = task_service.get_task_stderr(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        return Response(status=status.HTTP_200_OK, data={'stderr': task_stderr})
