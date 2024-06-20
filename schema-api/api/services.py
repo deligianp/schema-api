@@ -14,6 +14,7 @@ from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
+from quotas.models import ContextQuotas
 from quotas.services import QuotasService
 from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
 
@@ -207,6 +208,9 @@ class ContextService:
         except ValidationError as ve:
             raise ApplicationErrorHelper.to_application_error(ve)
         context.save()
+
+        context_quotas = ContextQuotas(context=context)
+        context_quotas.save()
 
         return context
 
