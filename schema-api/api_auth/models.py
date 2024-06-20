@@ -2,8 +2,6 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.base_user import AbstractBaseUser
-from django.contrib.auth.models import Group, AbstractUser
-from django.contrib.contenttypes.models import ContentType
 from django.db import models
 from django.db.models import Q, F
 from django.utils import timezone
@@ -42,12 +40,6 @@ class AuthEntity(AbstractBaseUser):
                 condition=Q(parent__isnull=True),
                 name='username_unique_when_no_parent',
                 violation_error_message='Username is not available',
-                error_context={'field': 'username'}
-            ),
-            ApplicationCheckConstraint(
-                check=Q(username__regex='^' + settings.USERNAME_SLUG_PATTERN + '$'),
-                name='username_format',
-                violation_error_message=settings.USERNAME_SLUG_PATTERN_VIOLATION_MESSAGE,
                 error_context={'field': 'username'}
             ),
             ApplicationCheckConstraint(
