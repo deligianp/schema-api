@@ -6,6 +6,7 @@ from django.db import transaction
 from api.models import Participation, Context
 from api_auth.models import AuthEntity
 from quotas.models import Quotas, ContextQuotas, ParticipationQuotas
+from util.exceptions import ApplicationNotFoundError
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,11 @@ class QuotasService:
         self.context = context
         self.user = user
         if user is not None:
-            self.participation = Participation.objects.get(context=context, user=user)
+            try:
+                self.participation = Participation.objects.get(context=context, user=user)
+            except Participation.DoesNotExist:
+                raise ApplicationNotFoundError(
+                    f'User "{self.user.username}" does not participate in context "{self.context.name}".')
 
     def _get_context_quotas(self) -> ContextQuotas:
         try:
