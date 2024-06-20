@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.core.validators import MinValueValidator
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
@@ -90,7 +91,7 @@ class ResourcesSerializer(BaseSerializer):
 
 
 class TaskSerializer(BaseSerializer):
-    context = serializers.CharField(source='context.username', read_only=True)
+    context = serializers.CharField(source='context.name', read_only=True)
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
     description = serializers.CharField(required=False)
@@ -99,7 +100,7 @@ class TaskSerializer(BaseSerializer):
     executors = ExecutorSerializer(many=True, allow_empty=False)
     inputs = InputMountPointSerializer(many=True, required=False, allow_empty=False)
     outputs = OutputMountPointSerializer(many=True, required=False, allow_empty=False)
-    resources = ResourcesSerializer(required=False, source='resourceset')
+    resources = ResourcesSerializer(required=False)
     volumes = ModelMemberRelatedField(target_field_name='path', child=serializers.CharField(), allow_empty=False,
                                       required=False)
     tags = KVPairsField(required=False, child=serializers.CharField(allow_blank=True), allow_empty=False)

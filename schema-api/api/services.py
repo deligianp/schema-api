@@ -31,7 +31,7 @@ class TaskService:
         output_mount_points = optional.pop('outputs', None)
         volumes = optional.pop('volumes', None)
         tags = optional.pop('tags', None)
-        resource_set = optional.pop('resourceset', None)
+        resource_set = optional.pop('resources', None)
 
         task = Task.objects.create(context=self.context, user=self.auth_entity, name=name, **optional)
 
