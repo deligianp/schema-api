@@ -179,3 +179,6 @@ if not CONTEXT_NAME_SLUG_PATTERN_VIOLATION_MESSAGE:
     # noinspection PyUnboundLocalVariable
     CONTEXT_NAME_SLUG_PATTERN_VIOLATION_MESSAGE = 'Context name must abide by the following regular expression: ' \
                                                   f'{CONTEXT_NAME_SLUG_PATTERN}'
+
+MAX_PAGINATION_LIMIT = env.int('SCHEMA_API_MAX_PAGINATION_LIMIT', 100)
+DEFAULT_PAGINATION_LIMIT = env.int('SCHEMA_API_DEFAULT_PAGINATION_LIMIT', 50)
