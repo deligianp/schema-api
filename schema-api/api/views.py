@@ -550,18 +550,15 @@ class TaskRetrieveAPIView(RetrieveAPIView):
     lookup_field = 'uuid'
     serializer_class = TaskSerializer
 
-    def get_queryset(self):
-        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
-        return task_service.get_tasks()
-    #
-    # def get(self, request, uuid=None):
-    #     task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-    #     try:
-    #         task = task_service.get_task(uuid)
-    #     except Task.DoesNotExist:
-    #         return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
-    #     task_serializer = TaskSerializer(task)
-    #     return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+    def get(self, request, uuid, **kwargs):
+        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        try:
+            task = task_service.get_task(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        task_serializer = self.serializer_class(task)
+        return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+
 
 class TaskStdoutAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
