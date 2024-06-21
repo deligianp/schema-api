@@ -1,0 +1,79 @@
+# This is a template file provided in order to enable the configuration of the application in different environments
+# Copy and paste this file under the same directory, naming the pasted file as local_settings.py and configure the
+# following settings based on the Django documentation and the accompanying instructions
+
+# ------------------------------------------------------------------------
+#                   Django-specific environment settings
+# ------------------------------------------------------------------------
+
+
+# DEBUG controls whether errors are shown in browser, allowing for easier development
+# Set to True in development environments and False for environments publicly accessible
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#debug
+#
+# Set to True if deployed in development/test environment, set to False if deployed in production
+DEBUG = True
+
+# Host names that the Django application can accept
+# Must be set if DEBUG is False
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#allowed-hosts
+#
+# Add each allowed application host IP as a string
+ALLOWED_HOSTS = []
+
+# Secret key is used for cryptographic purposes and should be unique across different deployments
+# HINT: use the command `python manage.py generate_secret_key -f schema_api/local_settings.py.template` to
+# automatically complete the value below with a random string!
+# SECURITY WARNING: keep the secret key used in production secret! Do not track in git!
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#secret-key
+#
+# A random string used for cryptographic purposes
+# NOTE: For security purposes it is imperative that you change the following value. Use `python manage.py generate_key`
+# to get a typical value that you can use as a security key
+SECRET_KEY = 'secret-key'
+
+# Database connection information and configuration is provided as a dictionary in DATABASES
+# Documentation at: https://docs.djangoproject.com/en/4.1/ref/settings/#databases
+# Database connection definition format:
+# DATABASES = {
+#     'default': {
+#         'ENGINE': Set to corresponding database driver
+#         'NAME': Set to the name of the database
+#         'USER': Set to the user to be used in order to connect to the database
+#         'PASSWORD': Provide user password
+#         'HOST': Provide IP of host where database resides
+#         'PORT': Port to which the database listens to
+#     }
+# }
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': os.path.join(BASE_DIR, 'db.sqlite3')
+    }
+}
+
+# ------------------------------------------------------------------------
+#                 Application-specific environment settings
+# ------------------------------------------------------------------------
+
+# Task API definition refers to the information required for schema-api to assign on its own, submitted tasks to the
+# underlying task executor API. The format of the definition is the following:
+# TASK_API = {
+#     'TASK_API_CLASS': Class path with dot notations. e.g.: 'api.taskapis.TesTaskApi',
+#     'GET_TASK_ENDPOINT': Endpoint URL that the scheduled tasks can be retrieved from the task executor API,
+#     'CREATE_TASK_ENDPOINT': Endpoint URL that submitted tasks can be posted on the task executor API,
+#     'DB_TASK_STATUS_TTL_SECONDS': Determines a cooldown interval in seconds between multiple task retrieval requests,
+#                                   for each task.
+# }
+#
+# GET_TASK_ENDPOINT and CREATE_TASK_ENDPOINT can be any value - these values work together with the BaseTaskApi class,
+# that custom TaskApi implementations should extend, and in turn are available for the TaskApi subclasses as object
+# attributes self.get_task_endpoint and self.post_task_endpoint
+#
+# If TASK_APIs is None, then it is assumed that submitted tasks will be scheduled for execution by an external
+# scheduler service.
+# TODO: remove this abstraction about TaskApi endpoints
+TASK_APIS = None
+
+# Set to True if auth module is to be used (recommended), else False
+USE_AUTH = False
