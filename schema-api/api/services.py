@@ -102,8 +102,8 @@ class TaskService:
                 task.pending = False
             task.status = task_status
 
-            executors_stderr = task_info['stderr']
-            executors_stdout = task_info['stdout']
+            executors_stderr = task_info['stderr'] if 'stderr' in task_info else ['']
+            executors_stdout = task_info['stdout'] if 'stdout' in task_info else ['']
             n_executors_logged = len(executors_stdout)
             task_executors = task.executors.all().order_by('order')[:n_executors_logged].prefetch_related(
                 'executoroutputlog'
