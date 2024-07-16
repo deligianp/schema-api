@@ -1,5 +1,4 @@
-name: Build Docker Images on Tag
-
+name: build_on_tag
 on:
   push:
     tags:

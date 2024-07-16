@@ -1,5 +1,4 @@
-name: Build Docker Images on Push
-
+name: build_on_push
 on:
   push:
     branches:
