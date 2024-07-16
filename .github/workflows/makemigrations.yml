@@ -1,0 +1,60 @@
+name: release
+on:
+  push:
+    branches:
+      - "main"
+  workflow_dispatch:
+jobs:
+  makemigrations:
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        name: Checking out repository
+        with:
+          ref: migrations
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.AUTO_MANAGE_REPO_PAT }}
+      - uses: actions/setup-python@v5
+        name: Setting up Python 3.12
+        with:
+          python-version: 3.12
+      - name: Fetching and merging main onto migrations branch
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git merge -X theirs --allow-unrelated-histories --no-commit --no-ff origin/main
+      - name: Inferring commit's tag
+        run: |
+          TAG=$(git describe --tags --exact-match $(git rev-parse origin/main)) && echo "TAG=$TAG" >> $GITHUB_ENV
+          :
+      - name: Install Django dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pipenv
+          pipenv requirements > requirements.txt
+          pip install -r requirements.txt
+      - name: Adding merged changes to commit
+        run: |
+          git add -A
+      - name: Making migrations
+        run: |
+          python schema-api/manage.py makemigrations --noinput
+      - name: Adding potential migration files to commit
+        run: |
+          git add -f schema-api/migrations/*
+      - name: Commit changes
+        run: |
+          git commit -m "Migrations for commit $(git rev-parse --short "$GITHUB_SHA") from main branch"
+      - name: Apply corresponding tag to commit
+        if: env.TAG != ''
+        run: |
+          git tag ${{ env.TAG }}-synced
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          branch: release
+          tags: true
