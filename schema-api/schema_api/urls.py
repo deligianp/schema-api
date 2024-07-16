@@ -32,4 +32,4 @@ if settings.USE_AUTH:
     urlpatterns.insert(-1, path('api_auth/', include('api_auth.urls')))
 
 if settings.USE_FILES:
-    urlpatterns.insert(-1, path('files/', include('files.urls')))
+    urlpatterns.insert(-1, path('storage/', include('files.urls')))
