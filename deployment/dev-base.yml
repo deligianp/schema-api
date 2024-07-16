@@ -6,10 +6,11 @@ services:
         - runserver
         - 0.0.0.0:80
       image: schema-api-dev
+      user: ${MY_UID}:${MY_GID}
       build:
         context: ..
         dockerfile: deployment/dev.Dockerfile
       ports:
         - "8080:80"
       volumes:
-        - ../:/schema-api/
+        - ../schema-api:/schema-api/
