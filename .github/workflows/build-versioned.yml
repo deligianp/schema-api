@@ -72,6 +72,7 @@ jobs:
         if: env.MATCHED_BRANCH == 'main'
         uses: docker/build-push-action@v6
         with:
+          file: deployment/Dockerfile
           context: .
           tags: |
             ${{ steps.meta_tag_main.outputs.tags }}
@@ -80,6 +81,7 @@ jobs:
         if: env.MATCHED_BRANCH == 'migrations'
         uses: docker/build-push-action@v6
         with:
+          file: deployment/Dockerfile
           context: .
           tags: ${{ steps.meta_tag_migrations.outputs.tags }}
           push: true
