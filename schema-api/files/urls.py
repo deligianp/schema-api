@@ -1,8 +1,8 @@
 from django.urls import path
 
-from files.views import UploadAPIView, DownloadAPIView
+from files.views import FilesListAPIView, FileDetailsAPIView
 
 urlpatterns = [
-    path(r'upload/', UploadAPIView.as_view(), name='uploads'),
-    path(r'download/<path:file_path>/', DownloadAPIView.as_view(), name='downloads')
+    path('files', FilesListAPIView.as_view(), name='files_list'),
+    path('files/<path:path>', FileDetailsAPIView.as_view(), name='file_details')
 ]
