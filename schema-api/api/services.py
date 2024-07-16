@@ -19,6 +19,21 @@ from quotas.services import QuotasService
 from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
 
 
+class UserContextService:
+
+    def __init__(self, auth_entity: AuthEntity):
+        self.auth_entity = auth_entity
+
+    def list_contexts(self) -> Iterable[Context]:
+        return self.auth_entity.contexts.all()
+
+    def retrieve_context(self, name: str) -> Context:
+        try:
+            return self.auth_entity.contexts.get(name=name)
+        except Context.DoesNotExist as dne:
+            raise ApplicationNotFoundError from dne
+
+
 class TaskService:
 
     def __init__(self, context=None, auth_entity=None):
@@ -149,7 +164,7 @@ class TaskService:
         ]
         return executors_stderr
 
-    def get_tasks(self)->QuerySet[Task]:
+    def get_tasks(self) -> QuerySet[Task]:
         return Task.objects.filter(context=self.context)
 
 
