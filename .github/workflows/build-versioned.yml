@@ -1,0 +1,86 @@
+name: Build Docker Images on Tag
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Ensure tag is in a proper branch
+        run: |
+          TAG_COMMIT_SHA=$(git rev-list -n 1 $GITHUB_REF)
+          echo "::debug::Tagged commit SHA: $TAG_COMMIT_SHA"
+          
+          TAGGED_BRANCHES=$(git branch -r --contains $TAG_COMMIT_SHA --no-color --format='%(refname:short)')
+          echo "::debug::Branches tagged with the triggering tag: $TAGGED_BRANCHES"
+          ACCEPTABLE_BRANCHES=(main migrations)
+          BRANCH_MATCH=false
+          for b in ${ACCEPTABLE_BRANCHES[@]}; do
+            if [[ $BRANCH_MATCH == true ]]; then
+              break;
+            fi
+            echo "::debug::Evaluating whether tag is in branch '$b'"
+            for t in ${TAGGED_BRANCHES[@]}; do
+              if [[ $t == *"$b" ]]; then
+                BRANCH_MATCH=true
+                echo "Triggering tag in branch $b is accepted for being used in a Docker image"
+                echo "MATCHED_BRANCH=$b" >> $GITHUB_ENV
+                echo "REFERENCED_COMMIT_SHA=$TAG_COMMIT_SHA" >> $GITHUB_ENV
+                break
+              fi
+            done
+          done
+      - name: Switching to migrations branch
+        if: env.MATCHED_BRANCH == 'migrations'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.REFERENCED_COMMIT_SHA }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_SECRET }}
+      - name: Extract metadata for tagged commit in main
+        if: env.MATCHED_BRANCH == 'main'
+        id: meta_tag_main
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ vars.DOCKER_REPOSITORY }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable=true
+      - name: Extract metadata for tagged commit in migrations
+        if: env.MATCHED_BRANCH == 'migrations'
+        id: meta_tag_migrations
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ vars.DOCKER_REPOSITORY }}
+          tags: |
+            type=semver,pattern={{version}},value={{version}}-${{ DOCKER_MIGRATIONS_SUFFIX }}
+      - name: Build and push Docker images for main
+        if: env.MATCHED_BRANCH == 'main'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: |
+            ${{ steps.meta_tag_main.outputs.tags }}
+          push: true
+      - name: Build and push Docker images for migrations
+        if: env.MATCHED_BRANCH == 'migrations'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          tags: ${{ steps.meta_tag_migrations.outputs.tags }}
+          push: true
