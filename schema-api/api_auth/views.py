@@ -28,6 +28,7 @@ class ContextsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='List created contexts',
         description='Retrieve the list of contexts created by the authenticated application service',
         tags=['Contexts'],
@@ -57,6 +58,7 @@ class ContextsAPIView(APIView):
         return Response(data=context_list_serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
+        exclude=True,
         summary='Create new context',
         description='Create a new context with the provided `name` and quotas, for the authenticated application '
                     'service',
@@ -124,6 +126,7 @@ class ContextDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='Get context details',
         description='Get details for a context with the given context `name`, along with users assigned to this '
                     'context',
@@ -175,6 +178,7 @@ class ContextDetailsAPIView(APIView):
         return Response(status=status.HTTP_200_OK, data=context_details_serializer.data)
 
     @extend_schema(
+        exclude=True,
         summary='Update context',
         description='Update context quotas',
         tags=['Contexts'],
@@ -273,6 +277,9 @@ class ContextQuotasAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication]
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
+    @extend_schema(
+        exclude=True
+    )
     def get(self, request, name):
         application_service = request.user
         logger.info(f'Request of application service "{application_service.username}" to retrieve quotas for context '
@@ -286,6 +293,9 @@ class ContextQuotasAPIView(APIView):
         quotas_serializer = QuotasSerializer(quotas)
         return Response(status=status.HTTP_200_OK, data=quotas_serializer.data)
 
+    @extend_schema(
+        exclude=True
+    )
     def patch(self, request, name):
         application_service = request.user
         context_service = ContextService(application_service)
@@ -300,6 +310,9 @@ class ContextQuotasAPIView(APIView):
         quotas_serializer = QuotasSerializer(quotas)
         return Response(status=status.HTTP_202_ACCEPTED, data=quotas_serializer.data)
 
+    @extend_schema(
+        exclude=True
+    )
     def delete(self, request, name):
         application_service = request.user
         context_service = ContextService(application_service)
@@ -315,6 +328,7 @@ class UsersAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='List users',
         description='Retrieve the list of users created by the authenticated application service',
         tags=['Users'],
@@ -355,6 +369,7 @@ class UsersAPIView(APIView):
         return Response(data=user_list_serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
+        exclude=True,
         summary='Create new user',
         description='Create a new user with the provided username, for the authenticated application service',
         tags=['Users'],
@@ -436,6 +451,7 @@ class UserDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='Get user details',
         description='Get details for a user with the given username',
         tags=['Users'],
@@ -478,6 +494,7 @@ class UserDetailsAPIView(APIView):
         return Response(status=status.HTTP_200_OK, data=user_details_serializer.data)
 
     @extend_schema(
+        exclude=True,
         summary='Update user',
         description='Update user file system home directory',
         tags=['Users'],
@@ -547,6 +564,7 @@ class ContextParticipantsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='List users assigned to a context',
         description='Retrieve the list of users currently assigned the context referenced by the `name` path parameter',
         tags=['Context participants'],
@@ -587,6 +605,7 @@ class ContextParticipantsAPIView(APIView):
         return Response(data=participation_list_serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
+        exclude=True,
         summary='Assign a user to a context',
         description='Assign a user to the context referenced by the `name` path parameter',
         tags=['Context participants'],
@@ -664,6 +683,7 @@ class ContextParticipantDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='Remove user from context',
         description='Remove the user referenced by the `username` path parameter from the context referenced by the '
                     '`name` path parameter',
@@ -727,6 +747,9 @@ class ContextParticipantQuotasAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication]
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
+    @extend_schema(
+        exclude=True,
+    )
     def get(self, request, name, username):
         application_service = request.user
         logger.info(f'Request of application service "{application_service.username}" to retrieve quotas for user '
@@ -744,6 +767,9 @@ class ContextParticipantQuotasAPIView(APIView):
         quotas_serializer = QuotasSerializer(quotas)
         return Response(status=status.HTTP_200_OK, data=quotas_serializer.data)
 
+    @extend_schema(
+        exclude=True
+    )
     def patch(self, request, name, username):
         application_service = request.user
 
@@ -762,6 +788,9 @@ class ContextParticipantQuotasAPIView(APIView):
         quotas_serializer = QuotasSerializer(quotas)
         return Response(status=status.HTTP_202_ACCEPTED, data=quotas_serializer.data)
 
+    @extend_schema(
+        exclude=True
+    )
     def delete(self, request, name, username):
         application_service = request.user
 
@@ -782,6 +811,7 @@ class ContextParticipationTokensAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='List context participation API tokens',
         description='Retrieve the list of tokens authenticating the participation of the user referenced by the '
                     '`username` path parameter, to the context referenced by the `name` path parameter',
@@ -848,6 +878,7 @@ class ContextParticipationTokensAPIView(APIView):
         return Response(data=api_token_list_serializer.data, status=status.HTTP_200_OK)
 
     @extend_schema(
+        exclude=True,
         summary='Issue new context participation API token',
         description='Issue new API token authenticating the participation of the user referenced by the '
                     '`username` path parameter, to the context referenced by the `name` path parameter',
@@ -972,6 +1003,7 @@ class ContextParticipationTokenDetailsAPIView(APIView):
     permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
 
     @extend_schema(
+        exclude=True,
         summary='Get context participation API token\'s details',
         description='Get details of the API token referenced by the `uuid` path parameter and authenticating the '
                     'participation of the user referenced by the `username` path parameter, to the context referenced '
@@ -1040,6 +1072,7 @@ class ContextParticipationTokenDetailsAPIView(APIView):
         return Response(status=status.HTTP_200_OK, data=api_token_details_serializer.data)
 
     @extend_schema(
+        exclude=True,
         summary='Update context participation API token',
         description='Update context participation API token referenced by the `uuid` path parameter and authenticating '
                     'the participation of the user referenced by the `username` path parameter, to the context '
@@ -1167,6 +1200,7 @@ class ContextParticipationTokenDetailsAPIView(APIView):
         return Response(status=status.HTTP_202_ACCEPTED, data=output_data)
 
     @extend_schema(
+        exclude=True,
         summary='Revoke context participation API token',
         description='Revoke API token referenced by the `uuid` path parameter and authenticating the '
                     'participation of the user referenced by the `username` path parameter, to the context referenced '
