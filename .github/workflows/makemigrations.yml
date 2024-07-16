@@ -30,6 +30,9 @@ jobs:
         run: |
           TAG=$(git describe --tags --exact-match $(git rev-parse origin/main)) && echo "TAG=$TAG" >> $GITHUB_ENV
           :
+      - name: Adding merged changes to commit
+        run: |
+          git add -A
       - name: Install Django dependencies
         run: |
           python -m pip install --upgrade pip
