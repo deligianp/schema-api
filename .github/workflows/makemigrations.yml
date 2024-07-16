@@ -44,7 +44,7 @@ jobs:
           python schema-api/manage.py makemigrations --noinput
       - name: Adding potential migration files to commit
         run: |
-          git add -f schema-api/migrations/*
+          git add -f schema-api/migrations/*/*.py
       - name: Commit changes
         run: |
           git commit -m "Migrations for commit $(git rev-parse --short "$GITHUB_SHA") from main branch"
