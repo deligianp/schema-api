@@ -16,7 +16,6 @@ jobs:
           ref: migrations
           fetch-depth: 0
           fetch-tags: true
-          token: ${{ secrets.AUTO_MANAGE_REPO_PAT }}
       - uses: actions/setup-python@v5
         name: Setting up Python 3.12
         with:
