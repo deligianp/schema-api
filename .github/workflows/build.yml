@@ -1,0 +1,58 @@
+name: build_on_push
+on:
+  push:
+    branches:
+      - main
+      - migrations
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref }}
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_SECRET }}
+      - name: Get current date
+        id: date
+        run: echo "DATE=$(date +'%Y%m%d')" >> $GITHUB_ENV
+      - name: Extract metadata for main branch
+        if: github.ref == 'refs/heads/main'
+        id: meta_main
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ vars.DOCKER_REPOSITORY }}
+          tags: |
+            edge
+            ${{ env.DATE }}
+      - name: Extract metadata for migrations branch
+        if: github.ref == 'refs/heads/migrations'
+        id: meta_migrations
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ vars.DOCKER_USERNAME }}/${{ vars.DOCKER_REPOSITORY }}
+          tags: |
+            ${{ env.DATE }}-${{ vars.DOCKER_MIGRATIONS_SUFFIX }}
+      - name: Build and push Docker images for main
+        if: github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v6
+        with:
+          file: deployment/Dockerfile
+          context: .
+          tags: ${{ steps.meta_main.outputs.tags }}
+          push: true
+      - name: Build and push Docker images for migrations
+        if: github.ref == 'refs/heads/migrations'
+        uses: docker/build-push-action@v6
+        with:
+          file: deployment/Dockerfile
+          context: .
+          tags: ${{ steps.meta_migrations.outputs.tags }}
+          push: true

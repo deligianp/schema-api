@@ -4,7 +4,7 @@ from django.conf import settings
 from django_filters import rest_framework as filters
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.types import OpenApiTypes
-from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter
+from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter, inline_serializer
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from api.constants import TaskStatus
 from api.filtersets import TaskFilter
 from api.models import Task
 from api.serializers import TaskSerializer, TasksListQPSerializer, TasksBasicListSerializer, \
@@ -43,149 +44,102 @@ class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
         }
 
 
-class TaskViewSet(viewsets.ViewSet):
-    lookup_field = 'uuid'
+class UserQuotasAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
     permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
 
-    class ListTaskSerialzier(TaskSerializer):
-        def get_fields(self):
-            fields = super().get_fields()
-            return {key: fields[key] for key in ['uuid', 'name', 'submitted_at'] if key in fields}
-
     @extend_schema(
-        summary='Get task\'s details',
-        description='Retrieve details for a particular task, identified by its assigned UUID',
+        summary='Get applied quotas for user in project',
+        description='Get quotas for a user in a project, applied by the corresponding application service',
         tags=['Task'],
-        parameters=[
-            OpenApiParameter('uuid', OpenApiTypes.UUID, OpenApiParameter.PATH,
-                             description='UUID of the target task that was assigned during submission', required=True,
-                             allow_blank=False, many=False, )
-        ],
         responses={
             200: OpenApiResponse(
-                description='Details of the task specified by the UUID are returned',
-                response=TaskSerializer,
-                examples=[
-                    OpenApiExample(
-                        'valid-task-output-0',
-                        summary='Details of a currently running task',
-                        value={
-                            "context": "test.context1",
-                            "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
-                            "name": "task1.0",
-                            "description": "test_task_description",
-                            "status": "RUNNING",
-                            "submitted_at": "2023-03-03T06:58:54.426118Z",
-                            "executors": [
-                                {
-                                    "image": "ubuntu:20.04",
-                                    "command": [
-                                        "echo",
-                                        "task2"
-                                    ]
-                                }
-                            ]
-                        },
-                        request_only=False,
-                        response_only=True,
-                    ),
-                    OpenApiExample(
-                        'valid-task-output-1',
-                        summary='Details of a task that unfortunately ended with an error',
-                        value={
-                            "context": "test.context1",
-                            "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
-                            "name": "task1.0",
-                            "description": "test_task_description",
-                            "status": "ERROR",
-                            "submitted_at": "2023-03-03T06:58:54.426118Z",
-                            "executors": [
-                                {
-                                    "image": "ubuntu:20.04",
-                                    "command": [
-                                        "echo",
-                                        "task2"
-                                    ]
-                                }
-                            ]
-                        },
-                        request_only=False,
-                        response_only=True,
-                    ),
-                    OpenApiExample(
-                        'valid-task-output-2',
-                        summary='Details of a successfully completed task',
-                        value={
-                            "context": "test.context1",
-                            "uuid": "528d641d-e4ce-4c5b-8b69-aa6d42cf5d16",
-                            "name": "hello world",
-                            "description": "Complete example",
-                            "status": "COMPLETED",
-                            "submitted_at": "2023-03-06T14:02:52.146207Z",
-                            "executors": [
-                                {
-                                    "image": "ubuntu:latest",
-                                    "command": [
-                                        "wc",
-                                        "-l",
-                                        "/data/input/file.txt"
-                                    ],
-                                    "stdout": "/data/output/stdout",
-                                    "stderr": "/data/output/stderr",
-                                    "workdir": "/home",
-                                }
-                            ],
-                            "inputs": [
-                                {
-                                    "url": "/host/path/input_file.txt",
-                                    "path": "/data/input/file.txt",
-                                    "type": "FILE"
-                                }
-                            ],
-                            "outputs": [
-                                {
-                                    "url": "/host/path/test_output_directory",
-                                    "path": "/data/output",
-                                    "type": "DIRECTORY"
-                                }
-                            ]
-                        },
-                        request_only=False,
-                        response_only=True,
-                    )
-                ]
+                description='Applied quotas for context and participation',
+                response=inline_serializer(
+                    name='UserQuotasSerializer',
+                    fields={
+                        'context': QuotasSerializer(),
+                        'participation': QuotasSerializer()
+                    }
+                )
             ),
             400: OpenApiResponse(
-                description='Task request was invalid. Response will contain information about potential errors in the '
+                description='Request was invalid. Response will contain information about potential errors in the '
                             'request.'
             ),
             401: OpenApiResponse(
                 description='Authentication failed. Perhaps no API token was provided in the `Authorization` header, '
                             'or the API token was invalid.'
-            ),
-            404: OpenApiResponse(
-                description='Given UUID does not match an existing task'
             )
         }
     )
-    def retrieve(self, request, uuid=None):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        try:
-            task = task_service.get_task(uuid)
-        except Task.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
-        task_serializer = TaskSerializer(task)
-        return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+    def get(self, request):
+        context = request.context
+        user = request.user
+
+        quotas_service = QuotasService(context, user=user)
+        context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
+
+        data = {
+            'context': QuotasSerializer(context_quotas).data,
+            'participation': QuotasSerializer(participation_quotas).data
+        }
+
+        return Response(status=status.HTTP_200_OK, data=data)
+
+
+class TasksListCreateAPIView(ListCreateAPIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+    pagination_class = ApplicationPagination
+    filter_backends = (filters.DjangoFilterBackend,)
+    filterset_class = TaskFilter
+
+    def get_queryset(self):
+        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
+        return task_service.get_tasks()
+
+    def get_serializer_class(self):
+        if self.request.method == 'GET':
+            task_query_params_serializer = TasksListQPSerializer(data=self.request.query_params.dict())
+            task_query_params_serializer.is_valid(raise_exception=True)
+            query_params = task_query_params_serializer.validated_data
+
+            if query_params['view'] == 'basic':
+                return TasksBasicListSerializer
+            elif query_params['view'] == 'detailed':
+                return TasksDetailedListSerializer
+            else:
+                return TasksFullListSerializer
+        return TaskSerializer
 
     @extend_schema(
         summary='List submitted tasks',
-        description='List all tasks that have been submitted, regardless of their status',
+        description='List all tasks that have been submitted',
         tags=['Task'],
+        parameters=[
+            OpenApiParameter('search', OpenApiTypes.STR, OpenApiParameter.QUERY,
+                             description='Name or UUID part to filter tasks on', required=False,
+                             allow_blank=False, many=False, ),
+            OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY,
+                             description='Status to filter tasks on', required=False,
+                             allow_blank=False, many=False, enum=[x[0] for x in TaskStatus.choices]),
+            OpenApiParameter('before', OpenApiTypes.DATETIME, OpenApiParameter.QUERY,
+                             description='Retrieve tasks submitted before this date', required=False,
+                             allow_blank=False, many=False),
+            OpenApiParameter('after', OpenApiTypes.DATETIME, OpenApiParameter.QUERY,
+                             description='Retrieve tasks submitted after this date', required=False,
+                             allow_blank=False, many=False),
+            OpenApiParameter('order', OpenApiTypes.STR, OpenApiParameter.QUERY,
+                             description='Retrieve tasks submitted before this date', required=False,
+                             allow_blank=False, many=False,
+                             enum=['uuid', '-uuid', 'status', '-status', 'submitted_at', '-submitted_at'])
+
+        ],
         responses={
             200: OpenApiResponse(
                 description='For each submitted task, its UUID, its name and submitted timestamp is returned',
-                response=ListTaskSerialzier(many=True),
+                response=TasksFullListSerializer(many=True),
                 examples=[
                     OpenApiExample(
                         'valid-list-tasks-output-0',
@@ -210,11 +164,8 @@ class TaskViewSet(viewsets.ViewSet):
             )
         }
     )
-    def list(self, request):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        tasks = task_service.get_tasks()
-        task_serializer = self.ListTaskSerialzier(tasks, many=True)
-        return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+    def get(self, request, *args, **kwargs):
+        return super(TasksListCreateAPIView, self).get(request, *args, **kwargs)
 
     @extend_schema(
         summary='Submit a task execution request.',
@@ -368,17 +319,152 @@ class TaskViewSet(viewsets.ViewSet):
             )
         }
     )
-    def create(self, request):
-        serializer = TaskSerializer(data=request.data)
+    def post(self, request, **kwargs):
+        serializer_class = self.get_serializer_class()
+        serializer = serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         task_service = TaskService(context=request.context,
                                    auth_entity=request.user) if settings.USE_AUTH else TaskService()
+        task = task_service.submit_task(**serializer.validated_data)
+        stored_data = TaskSerializer(task).data
+        return Response(status=status.HTTP_201_CREATED, data=stored_data)
+
+
+class TaskRetrieveAPIView(RetrieveAPIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+    lookup_field = 'uuid'
+    serializer_class = TaskSerializer
+
+    @extend_schema(
+        summary='Get task\'s details',
+        description='Retrieve details for a particular task, identified by its assigned UUID',
+        tags=['Task'],
+        parameters=[
+            OpenApiParameter('uuid', OpenApiTypes.UUID, OpenApiParameter.PATH,
+                             description='UUID of the target task that was assigned during submission', required=True,
+                             allow_blank=False, many=False, )
+        ],
+        responses={
+            200: OpenApiResponse(
+                description='Details of the task specified by the UUID are returned',
+                response=TaskSerializer,
+                examples=[
+                    OpenApiExample(
+                        'valid-task-output-0',
+                        summary='Details of a currently running task',
+                        value={
+                            "context": "test.context1",
+                            "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
+                            "name": "task1.0",
+                            "description": "test_task_description",
+                            "status": "RUNNING",
+                            "submitted_at": "2023-03-03T06:58:54.426118Z",
+                            "executors": [
+                                {
+                                    "image": "ubuntu:20.04",
+                                    "command": [
+                                        "echo",
+                                        "task2"
+                                    ]
+                                }
+                            ]
+                        },
+                        request_only=False,
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        'valid-task-output-1',
+                        summary='Details of a task that unfortunately ended with an error',
+                        value={
+                            "context": "test.context1",
+                            "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
+                            "name": "task1.0",
+                            "description": "test_task_description",
+                            "status": "ERROR",
+                            "submitted_at": "2023-03-03T06:58:54.426118Z",
+                            "executors": [
+                                {
+                                    "image": "ubuntu:20.04",
+                                    "command": [
+                                        "echo",
+                                        "task2"
+                                    ]
+                                }
+                            ]
+                        },
+                        request_only=False,
+                        response_only=True,
+                    ),
+                    OpenApiExample(
+                        'valid-task-output-2',
+                        summary='Details of a successfully completed task',
+                        value={
+                            "context": "test.context1",
+                            "uuid": "528d641d-e4ce-4c5b-8b69-aa6d42cf5d16",
+                            "name": "hello world",
+                            "description": "Complete example",
+                            "status": "COMPLETED",
+                            "submitted_at": "2023-03-06T14:02:52.146207Z",
+                            "executors": [
+                                {
+                                    "image": "ubuntu:latest",
+                                    "command": [
+                                        "wc",
+                                        "-l",
+                                        "/data/input/file.txt"
+                                    ],
+                                    "stdout": "/data/output/stdout",
+                                    "stderr": "/data/output/stderr",
+                                    "workdir": "/home",
+                                }
+                            ],
+                            "inputs": [
+                                {
+                                    "url": "/host/path/input_file.txt",
+                                    "path": "/data/input/file.txt",
+                                    "type": "FILE"
+                                }
+                            ],
+                            "outputs": [
+                                {
+                                    "url": "/host/path/test_output_directory",
+                                    "path": "/data/output",
+                                    "type": "DIRECTORY"
+                                }
+                            ]
+                        },
+                        request_only=False,
+                        response_only=True,
+                    )
+                ]
+            ),
+            400: OpenApiResponse(
+                description='Task request was invalid. Response will contain information about potential errors in the '
+                            'request.'
+            ),
+            401: OpenApiResponse(
+                description='Authentication failed. Perhaps no API token was provided in the `Authorization` header, '
+                            'or the API token was invalid.'
+            ),
+            404: OpenApiResponse(
+                description='Given UUID does not match an existing task'
+            )
+        }
+    )
+    def get(self, request, uuid, **kwargs):
+        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
         try:
-            task = task_service.submit_task(**serializer.validated_data)
-            stored_data = TaskSerializer(task).data
-            return Response(status=status.HTTP_201_CREATED, data=stored_data)
-        except ApplicationTaskQuotaError as atqe:
-            return Response(status=status.HTTP_403_FORBIDDEN, data={'detail': str(atqe)})
+            task = task_service.get_task(uuid)
+        except Task.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
+        task_serializer = self.serializer_class(task)
+        return Response(status=status.HTTP_200_OK, data=task_serializer.data)
+
+
+class TaskStdoutAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
 
     @extend_schema(
         summary='Get task\'s standard output',
@@ -432,14 +518,18 @@ class TaskViewSet(viewsets.ViewSet):
             )
         }
     )
-    @action(detail=True, methods=['get'])
-    def stdout(self, request, uuid):
+    def get(self, request, uuid):
         task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
         try:
             task_stdout = task_service.get_task_stdout(uuid)
         except Task.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
         return Response(status=status.HTTP_200_OK, data={'stdout': task_stdout})
+
+
+class TaskStderrAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
 
     @extend_schema(
         summary='Get task\'s standard error stream',
@@ -480,103 +570,6 @@ class TaskViewSet(viewsets.ViewSet):
             )
         }
     )
-    @action(detail=True, methods=['get'])
-    def stderr(self, request, uuid):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        try:
-            task_stderr = task_service.get_task_stderr(uuid)
-        except Task.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
-        return Response(status=status.HTTP_200_OK, data={'stderr': task_stderr})
-
-
-class UserQuotasAPIView(APIView):
-    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
-
-    def get(self, request):
-        context = request.context
-        user = request.user
-
-        quotas_service = QuotasService(context, user=user)
-        context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
-
-        data = {
-            'context': QuotasSerializer(context_quotas).data,
-            'participation': QuotasSerializer(participation_quotas).data
-        }
-
-        return Response(status=status.HTTP_200_OK, data=data)
-
-
-class TasksListCreateAPIView(ListCreateAPIView):
-    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
-    pagination_class = ApplicationPagination
-    filter_backends = (filters.DjangoFilterBackend,)
-    filterset_class = TaskFilter
-
-    def get_queryset(self):
-        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
-        return task_service.get_tasks()
-
-    def get_serializer_class(self):
-        if self.request.method == 'GET':
-            task_query_params_serializer = TasksListQPSerializer(data=self.request.query_params.dict())
-            task_query_params_serializer.is_valid(raise_exception=True)
-            query_params = task_query_params_serializer.validated_data
-
-            if query_params['view'] == 'basic':
-                return TasksBasicListSerializer
-            elif query_params['view'] == 'detailed':
-                return TasksDetailedListSerializer
-            else:
-                return TasksFullListSerializer
-        return TaskSerializer
-
-    def post(self, request, **kwargs):
-        serializer_class = self.get_serializer_class()
-        serializer = serializer_class(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        task_service = TaskService(context=request.context,
-                                   auth_entity=request.user) if settings.USE_AUTH else TaskService()
-        task = task_service.submit_task(**serializer.validated_data)
-        stored_data = TaskSerializer(task).data
-        return Response(status=status.HTTP_201_CREATED, data=stored_data)
-
-class TaskRetrieveAPIView(RetrieveAPIView):
-    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
-    lookup_field = 'uuid'
-    serializer_class = TaskSerializer
-
-    def get(self, request, uuid, **kwargs):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        try:
-            task = task_service.get_task(uuid)
-        except Task.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
-        task_serializer = self.serializer_class(task)
-        return Response(status=status.HTTP_200_OK, data=task_serializer.data)
-
-
-class TaskStdoutAPIView(APIView):
-    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
-
-    def get(self, request, uuid):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
-        try:
-            task_stdout = task_service.get_task_stdout(uuid)
-        except Task.DoesNotExist:
-            return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
-        return Response(status=status.HTTP_200_OK, data={'stdout': task_stdout})
-
-
-class TaskStderrAPIView(APIView):
-    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
-    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
-
     def get(self, request, uuid):
         task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
         try:
