@@ -57,3 +57,4 @@ jobs:
         with:
           branch: ${{ vars.MIGRATIONS_BRANCH }}
           tags: true
+          github_token: ${{ secrets.PAT }}
