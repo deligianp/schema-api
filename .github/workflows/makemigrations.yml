@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
         name: Checking out repository
         with:
-          ref: migrations
+          ref: ${{ vars.MIGRATIONS_BRANCH }}
           fetch-depth: 0
           fetch-tags: true
       - uses: actions/setup-python@v5
@@ -39,15 +39,12 @@ jobs:
           pip install pipenv
           pipenv requirements > requirements.txt
           pip install -r requirements.txt
-      - name: Adding merged changes to commit
-        run: |
-          git add -A
       - name: Making migrations
         run: |
           python schema-api/manage.py makemigrations --noinput
       - name: Adding potential migration files to commit
         run: |
-          git add -f schema-api/migrations/*/*.py
+          git add -f ${{ vars.MIGRATIONS_DISCOVERY_PATH }}
       - name: Commit changes
         run: |
           git commit -m "Migrations for commit $(git rev-parse --short "$GITHUB_SHA") from main branch"
@@ -58,5 +55,5 @@ jobs:
       - name: Push changes
         uses: ad-m/github-push-action@master
         with:
-          branch: migrations
+          branch: ${{ vars.MIGRATIONS_BRANCH }}
           tags: true
