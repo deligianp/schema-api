@@ -126,7 +126,9 @@ SPECTACULAR_SETTINGS = {
     'SWAGGER_UI_SETTINGS': {
         'defaultModelsExpandDepth': 10,
         'defaultModelExpandDepth': 10
-    }
+    },
+    "PREPROCESSING_HOOKS": ["documentation.swagger.hooks.preprocessing_filter_spec"],
+
 }
 
 AUTH_USER_MODEL = 'api_auth.AuthEntity'
