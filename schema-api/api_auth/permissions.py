@@ -45,3 +45,13 @@ class IsContextMember(BasePermission):
         except Participation.DoesNotExist:
             raise False
         return True
+
+
+class IsRelatedToContext(BasePermission):
+
+    def has_permission(self, request, view):
+        is_application_service = IsApplicationService()
+        is_user = IsUser()
+        is_context_member = IsContextMember()
+        return is_application_service.has_permission(request, view) or (
+                is_user.has_permission(request, view) and is_context_member.has_permission(request, view))

@@ -1,16 +1,18 @@
 import logging
+from typing import Iterable
 
 from django.conf import settings
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, OpenApiExample
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.services import ContextService, ParticipationService
+from api.services import ContextService, ParticipationService, UserContextService
 from api_auth.auth import ApiTokenAuthentication
-from api_auth.permissions import IsApplicationService, IsActive
+from api_auth.constants import AuthEntityType
+from api_auth.permissions import IsApplicationService, IsActive, IsRelatedToContext
 from api_auth.serializers import ContextListSerializer, ContextCreateSerializer, ContextDetailsSerializer, \
     ContextUpdateSerializer, ContextSerializer, UserListSerializer, \
     UserDetailsSerializer, UserUpdateSerializer, ParticipationListSerializer, \
@@ -25,10 +27,15 @@ logger = logging.getLogger(__name__)
 
 class ContextsAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication]
-    permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
+
+    def get_permissions(self) -> Iterable[BasePermission]:
+        default_permissions = [IsAuthenticated(), IsActive()]
+        if self.request.method == 'POST':
+            return default_permissions + [IsApplicationService()]
+        return default_permissions + [IsRelatedToContext()]
 
     @extend_schema(
-        exclude=True,
+        exclude=False,
         summary='List created contexts',
         description='Retrieve the list of contexts created by the authenticated application service',
         tags=['Contexts'],
@@ -51,9 +58,13 @@ class ContextsAPIView(APIView):
         }
     )
     def get(self, request):
-        application_service = request.user
-        context_service = ContextService(application_service)
-        contexts = context_service.get_contexts()
+        if request.user.entity_type == AuthEntityType.APPLICATION_SERVICE:
+            application_service = request.user
+            context_service = ContextService(application_service)
+            contexts = context_service.get_contexts()
+        else:
+            user_context_service = UserContextService(request.user)
+            contexts = user_context_service.list_contexts()
         context_list_serializer = ContextListSerializer(contexts, many=True)
         return Response(data=context_list_serializer.data, status=status.HTTP_200_OK)
 
@@ -123,10 +134,15 @@ class ContextsAPIView(APIView):
 
 class ContextDetailsAPIView(APIView):
     authentication_classes = [ApiTokenAuthentication]
-    permission_classes = [IsAuthenticated, IsApplicationService, IsActive]
+
+    def get_permissions(self) -> Iterable[BasePermission]:
+        default_permissions = [IsAuthenticated(), IsActive()]
+        if self.request.method == 'PATCH':
+            return default_permissions + [IsApplicationService()]
+        return default_permissions + [IsRelatedToContext()]
 
     @extend_schema(
-        exclude=True,
+        exclude=False,
         summary='Get context details',
         description='Get details for a context with the given context `name`, along with users assigned to this '
                     'context',
@@ -171,9 +187,13 @@ class ContextDetailsAPIView(APIView):
         }
     )
     def get(self, request, name):
-        application_service = request.user
-        context_service = ContextService(application_service)
-        context = context_service.get_context(name=name)
+        if request.user.entity_type == AuthEntityType.APPLICATION_SERVICE:
+            application_service = request.user
+            context_service = ContextService(application_service)
+            context = context_service.get_context(name=name)
+        else:
+            user_context_service = UserContextService(request.user)
+            context = user_context_service.retrieve_context(name)
         context_details_serializer = ContextDetailsSerializer(context)
         return Response(status=status.HTTP_200_OK, data=context_details_serializer.data)
 
