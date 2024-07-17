@@ -26,19 +26,19 @@ class UserContextTestCase(TestCase):
         ucs = UserContextService(self.user0)
         contexts = ucs.list_contexts()
         expected = [self.contexts['context0'], self.contexts['context1']]
-        self.assertEquals(len([c for c in contexts]), len(expected))
+        self.assertEqual(len([c for c in contexts]), len(expected))
         for c in contexts:
             self.assertIn(c, expected)
 
     def test_list_contexts_returns_no_contexts_if_user_not_in_any_context(self):
         ucs = UserContextService(self.user1)
         contexts = ucs.list_contexts()
-        self.assertEquals(len([c for c in contexts]), 0)
+        self.assertEqual(len([c for c in contexts]), 0)
 
     def test_get_context_returns_context_referenced_by_provided_name(self):
         ucs = UserContextService(self.user0)
         context = ucs.retrieve_context('context1')
-        self.assertEquals(context, self.contexts['context1'])
+        self.assertEqual(context, self.contexts['context1'])
 
     def test_get_context_raises_application_not_found_error_on_no_match(self):
         ucs = UserContextService(self.user0)

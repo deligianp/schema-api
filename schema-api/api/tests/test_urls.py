@@ -8,16 +8,16 @@ class ApiUrlsCase(TestCase):
 
     def test_reverse_user_contexts_is_expected_url(self):
         expected = '/api/contexts'
-        self.assertEquals(reverse('user-contexts'),expected)
+        self.assertEqual(reverse('user-contexts'),expected)
 
     def test_reverse_user_context_details_is_expected_url(self):
         expected = '/api/contexts/name'
-        self.assertEquals(reverse('user-context-details', args=['name']), expected)
+        self.assertEqual(reverse('user-context-details', args=['name']), expected)
 
     def test_user_contexts_url_routes_to_expected_api_view(self):
         resolved = resolve('/api/contexts')
-        self.assertEquals(resolved.func.view_class, ContextsAPIView)
+        self.assertEqual(resolved.func.view_class, ContextsAPIView)
 
     def test_user_context_details_url_routes_to_expected_api_view(self):
         resolved = resolve('/api/contexts/name')
-        self.assertEquals(resolved.func.view_class, ContextDetailsAPIView)
+        self.assertEqual(resolved.func.view_class, ContextDetailsAPIView)
