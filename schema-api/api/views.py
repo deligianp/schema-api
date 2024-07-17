@@ -5,7 +5,7 @@ from django_filters import rest_framework as filters
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter, inline_serializer
-from rest_framework import viewsets, status
+from rest_framework import viewsets, status, serializers
 from rest_framework.decorators import action
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -20,6 +20,7 @@ from api.serializers import TaskSerializer, TasksListQPSerializer, TasksBasicLis
 from api.services import TaskService
 from api_auth.auth import ApiTokenAuthentication
 from api_auth.permissions import IsUser, IsActive, IsContextMember
+from api_auth.serializers import ContextDetailsSerializer
 from quotas.serializers import QuotasSerializer
 from quotas.services import QuotasService
 from util.exceptions import ApplicationTaskQuotaError
@@ -86,6 +87,36 @@ class UserQuotasAPIView(APIView):
         }
 
         return Response(status=status.HTTP_200_OK, data=data)
+
+
+# Temporary endpoint - expected to be removed in the future
+class UserContextInfoAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsActive, IsContextMember] if settings.USE_AUTH else []
+
+    @extend_schema(
+        summary='Get context info based on provided API key',
+        description='Get details for the context related to the provided API key',
+        tags=['Contexts'],
+        responses={
+            200: OpenApiResponse(
+                description='Context info returned',
+                response=inline_serializer(
+                    name='ContextInfoSerializer',
+                    fields={
+                        'name': serializers.CharField(),
+                        **ContextDetailsSerializer().fields
+                    },
+                )
+            )
+        }
+    )
+    def get(self, request):
+        context = request.context
+        context_details_serializer = ContextDetailsSerializer(context)
+        final_data = context_details_serializer.data
+        final_data['name'] = context.name
+        return Response(status=status.HTTP_200_OK, data=final_data)
 
 
 class TasksListCreateAPIView(ListCreateAPIView):
