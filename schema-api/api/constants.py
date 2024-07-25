@@ -17,6 +17,19 @@ class TaskStatus(models.TextChoices):
     CANCELED = 'CANCELED', 'CANCELED'
 
 
+class _TaskStatus(models.IntegerChoices):
+    UNKNOWN = -1, 'UNKNOWN'
+    SUBMITTED = 0, 'SUBMITTED'
+    APPROVED = 1, 'APPROVED'
+    REJECTED = 2, 'REJECTED'
+    SCHEDULED = 3, 'SCHEDULED'
+    INITIALIZING = 4, 'INITIALIZING'
+    RUNNING = 5, 'RUNNING'
+    COMPLETED = 6, 'COMPLETED'
+    ERROR = 7, 'ERROR'
+    CANCELED = 8, 'CANCELED'
+
+
 class MountPointTypes(models.TextChoices):
     FILE = 'FILE', 'FILE'
     DIRECTORY = 'DIRECTORY', 'DIRECTORY'
