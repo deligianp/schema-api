@@ -141,7 +141,6 @@ class StatusHistoryPoint(models.Model):
     status = models.IntegerField(choices=_TaskStatus.choices)
 
     class Meta:
-        unique_together = ('task', 'status')
         constraints = [
             CheckConstraint(
                 check=Q(status__in=[choice.value for choice in _TaskStatus]),
