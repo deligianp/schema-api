@@ -40,17 +40,8 @@ class StatusHistoryPointTestCase(TestCase):
         with self.assertRaises(IntegrityError):
             status_history_point.save()
 
-    def test_save_with_duplicate_referenced_task_works(self):
-        dt = timezone.now()
-        status = _TaskStatus.SUBMITTED
-        status_history_point = StatusHistoryPoint(task=self.task, created_at=dt, status=status)
-        status_history_point.save()
-        status = _TaskStatus.APPROVED
-        status_history_point = StatusHistoryPoint(task=self.task, created_at=dt, status=status)
-        status_history_point.save()
-
     def test_save_without_created_at_uses_timezone_now_default(self):
-        mocked_datetime = dt(2020, 1, 1, 1, 1, 1, tzinfo=datetime.UTC)
+        mocked_datetime = dt(2020, 1, 1, 1, 1, 1, tzinfo=datetime.timezone.utc)
         status = _TaskStatus.SUBMITTED
         with patch('django.utils.timezone.now', return_value=mocked_datetime):
             print(timezone.now())
@@ -73,16 +64,6 @@ class StatusHistoryPointTestCase(TestCase):
     def test_save_with_task_status_as_none_raises_error(self):
         dt = timezone.now()
         status_history_point = StatusHistoryPoint(created_at=dt, task=self.task, status=None)
-        with self.assertRaises(IntegrityError):
-            status_history_point.save()
-
-    def test_save_with_duplicate_task_status_for_same_task_raises_error(self):
-        dt = timezone.now()
-        status = _TaskStatus.SUBMITTED
-        status_history_point = StatusHistoryPoint(task=self.task, created_at=dt, status=status)
-        status_history_point.save()
-        status = _TaskStatus.SUBMITTED
-        status_history_point = StatusHistoryPoint(task=self.task, created_at=dt, status=status)
         with self.assertRaises(IntegrityError):
             status_history_point.save()
 

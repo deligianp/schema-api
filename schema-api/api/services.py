@@ -1,3 +1,4 @@
+import datetime
 import uuid
 from typing import Iterable
 
@@ -8,15 +9,16 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from api import taskapis
-from api.constants import TaskStatus
+from api.constants import _TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
-    Participation
+    Participation, StatusHistoryPoint
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
 from quotas.models import ContextQuotas
 from quotas.services import QuotasService
-from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError
+from util.exceptions import ApplicationError, ApplicationErrorHelper, ApplicationNotFoundError, \
+    ApplicationValidationError
 
 
 class UserContextService:
@@ -41,14 +43,17 @@ class TaskService:
         self.auth_entity = auth_entity
 
     @transaction.atomic
-    def submit_task(self, *, name: str, executors: Iterable[Executor], **optional):
+    def submit_task(self, *, executors: Iterable[Executor], **optional):
         input_mount_points = optional.pop('inputs', None)
         output_mount_points = optional.pop('outputs', None)
         volumes = optional.pop('volumes', None)
         tags = optional.pop('tags', None)
         resource_set = optional.pop('resources', None)
 
-        task = Task.objects.create(context=self.context, user=self.auth_entity, name=name, **optional)
+        task = Task.objects.create(context=self.context, user=self.auth_entity, **optional)
+
+        status_history_point_service = StatusHistoryPointService(task)
+        status_history_point_service.update_status(_TaskStatus.SUBMITTED)
 
         i = 0
         for executor in executors:
@@ -87,8 +92,7 @@ class TaskService:
         TasksQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
         ActiveResourcesDbQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
 
-        task.status = TaskStatus.APPROVED
-        task.save()
+        status_history_point_service.update_status(_TaskStatus.APPROVED)
 
         if settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
             task_api_class = taskapis.get_task_api_class()
@@ -97,9 +101,10 @@ class TaskService:
             task_id = task_api.create_task(task)
 
             task.task_id = task_id
-            task.status = TaskStatus.SCHEDULED
             task.latest_update = timezone.now()
             task.save()
+
+            status_history_point_service.update_status(_TaskStatus.SCHEDULED)
         return task
 
     @transaction.atomic
@@ -113,9 +118,11 @@ class TaskService:
             task_info = task_api.get_task_info(task.task_id)
 
             task_status = task_info['status']
-            if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
+            if task_status in [_TaskStatus.COMPLETED, _TaskStatus.ERROR, _TaskStatus.CANCELED]:
                 task.pending = False
-            task.status = task_status
+
+            status_history_point_service = StatusHistoryPointService(task)
+            status_history_point_service.update_status(task_status)
 
             executors_stderr = task_info['stderr'] if 'stderr' in task_info else ['']
             executors_stdout = task_info['stdout'] if 'stdout' in task_info else ['']
@@ -166,6 +173,42 @@ class TaskService:
 
     def get_tasks(self) -> QuerySet[Task]:
         return Task.objects.filter(context=self.context)
+
+    def cancel_task(self, task_uuid: uuid.UUID) -> None:
+        task = self.get_task(task_uuid)
+
+        if task.pending:
+
+            task_id = task.task_id
+
+            if task_id and settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
+                task_api_class = taskapis.get_task_api_class()
+                task_api = task_api_class(auth_entity=self.auth_entity)
+
+                if not task_api.cancel(task_id):
+                    raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
+
+                status_history_point_service = StatusHistoryPointService(task)
+                status_history_point_service.update_status(_TaskStatus.CANCELED)
+                return
+
+        raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
+
+
+class StatusHistoryPointService:
+
+    def __init__(self, task: Task):
+        self.task = task
+
+    def update_status(self, status: _TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
+        update_time = update_time or timezone.now()
+        return StatusHistoryPoint.objects.create(task=self.task, status=status, created_at=update_time)
+
+    def get_status_history(self) -> QuerySet[StatusHistoryPoint]:
+        return StatusHistoryPoint.objects.filter(task=self.task).order_by('-update_time')
+
+    def get_current_status(self) -> StatusHistoryPoint:
+        return self.get_status_history().first()
 
 
 class ParticipationService:

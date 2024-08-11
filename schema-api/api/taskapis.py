@@ -3,15 +3,14 @@ import importlib
 import json
 import os
 from abc import ABC
-from urllib.parse import urljoin
 
 import requests
+from django.conf import settings
 from rest_framework import status
 
-from api.constants import TaskStatus
+from api.constants import _TaskStatus
 from api.models import Task
 from api.serializers import TaskSerializer
-from django.conf import settings
 
 
 class AbstractTaskApi(metaclass=abc.ABCMeta):
@@ -36,6 +35,10 @@ class AbstractTaskApi(metaclass=abc.ABCMeta):
     def get_executor_logs(self, task_id, executor_index):
         pass
 
+    @abc.abstractmethod
+    def cancel(self, task_id):
+        pass
+
 
 class BaseTaskApi(AbstractTaskApi, ABC):
 
@@ -47,6 +50,22 @@ class BaseTaskApi(AbstractTaskApi, ABC):
 
 
 class TesTaskApi(BaseTaskApi):
+    def cancel(self, task_id):
+        url = os.path.join(self.get_task_endpoint, task_id) + ":cancel"
+        r = requests.post(
+            headers={
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            url=url
+        )
+        if r.status_code == status.HTTP_200_OK:
+            return True
+        else:
+            if str(r.status_code)[0] == '4':
+                return False
+            raise RuntimeError('An error occurred when posting task to TES runtime')
+
     class PostTaskSerializer(TaskSerializer):
         pass
 
@@ -88,19 +107,19 @@ class TesTaskApi(BaseTaskApi):
         return result
 
     TES_SCHEMA_STATUS_MAP = {
-        'UNKNOWN': TaskStatus.UNKNOWN,
-        'INITIALIZING': TaskStatus.INITIALIZING,
-        'QUEUED': TaskStatus.INITIALIZING,
-        'RUNNING': TaskStatus.RUNNING,
-        'PAUSED': TaskStatus.RUNNING,
-        'COMPLETE': TaskStatus.COMPLETED,
-        'EXECUTOR_ERROR': TaskStatus.ERROR,
-        'SYSTEM_ERROR': TaskStatus.ERROR,
-        'CANCELED': TaskStatus.CANCELED
+        'UNKNOWN': _TaskStatus.UNKNOWN,
+        'INITIALIZING': _TaskStatus.INITIALIZING,
+        'QUEUED': _TaskStatus.INITIALIZING,
+        'RUNNING': _TaskStatus.RUNNING,
+        'PAUSED': _TaskStatus.RUNNING,
+        'COMPLETE': _TaskStatus.COMPLETED,
+        'EXECUTOR_ERROR': _TaskStatus.ERROR,
+        'SYSTEM_ERROR': _TaskStatus.ERROR,
+        'CANCELED': _TaskStatus.CANCELED
     }
 
     def _get_task(self, task_id):
-        qualified_url = f'{urljoin(self.get_task_endpoint, task_id)}?view=FULL'
+        qualified_url = f'{os.path.join(self.get_task_endpoint, task_id)}?view=FULL'
         r = requests.get(url=qualified_url)
         if r.status_code == status.HTTP_200_OK:
             response_content = json.loads(r.content)
@@ -114,22 +133,24 @@ class TesTaskApi(BaseTaskApi):
 
     def create_task(self, task):
         task_data = self.PostTaskSerializer(task).data
+        task_data.setdefault('name', task_data.get('uuid'))
 
         # Remove fields that do not exist in TES
         task_data.pop('uuid', None)
         task_data.pop('submitted_at', None)
-        task_data.pop('status', None)
+        task_data.pop('status_history', None)
 
         related_context = task_data.pop('context', '')
+
         if related_context:
             task_data['name'] = related_context + '.' + task_data['name']
 
         # Namespace S3 URLs
-        for input in task_data['inputs']:
+        for input in task_data.get('inputs', []):
             if 'url' in input:
                 input['url'] = os.path.join(f's3://{self.auth_entity.uuid}', input['url'])
 
-        for output in task_data['outputs']:
+        for output in task_data.get('outputs', []):
             if 'url' in output:
                 output['url'] = os.path.join(f's3://{self.auth_entity.uuid}', output['url'])
 

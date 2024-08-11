@@ -29,6 +29,25 @@ class ModelMemberRelatedField(serializers.ListField):
         return whole_value
 
 
+class LatestInstanceRelatedField(serializers.Field):
+
+    def __init__(self, serializer_class, order_fields, reverse: bool = False, **kwargs):
+        super().__init__(**kwargs)
+        self.serializer_class = serializer_class
+        self.order_fields = order_fields
+
+    def to_representation(self, value):
+        latest_value = value.order_by(*self.order_fields).first()
+        return self.serializer_class(latest_value).data
+
+
+class IntegerChoiceField(serializers.IntegerField):
+
+    def to_representation(self, value):
+        serialized_integer = super(IntegerChoiceField, self).to_representation(value)
+        return ''
+
+
 class OmitEmptyValuesMixin:
 
     def to_representation(self, value: serializers.Serializer):
