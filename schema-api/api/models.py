@@ -76,12 +76,6 @@ class Task(models.Model):
                   'underlying TESK API for the task status'
     )
 
-    status = models.CharField(
-        choices=TaskStatus.choices,
-        default=TaskStatus.SUBMITTED,
-        help_text='Task status',
-        max_length=30
-    )
     submitted_at = models.DateTimeField(
         auto_now_add=True,
         help_text='Timestamp of task being approved and getting created'
@@ -95,27 +89,6 @@ class Task(models.Model):
             CheckConstraint(
                 check=~Q(name__regex=r'^\s*$'),
                 name='name_not_empty',
-            ),
-            CheckConstraint(
-                check=Q(status__in=[choice[0] for choice in TaskStatus.choices]),
-                name='status_enum'
-            ),
-            CheckConstraint(
-                check=Q(
-                    ~Q(task_id__regex=r'^\s*$') | Q(status=TaskStatus.SUBMITTED) | Q(status=TaskStatus.REJECTED) | Q(
-                        status=TaskStatus.APPROVED)),
-                name='scheduled_task_task_id_required'
-            ),
-            CheckConstraint(
-                check=Q(
-                    Q(
-                        Q(status=TaskStatus.CANCELED) | Q(status=TaskStatus.COMPLETED) |
-                        Q(status=TaskStatus.ERROR) | Q(status=TaskStatus.REJECTED), pending=False) |
-                    Q(
-                        ~Q(status=TaskStatus.CANCELED), ~Q(status=TaskStatus.COMPLETED),
-                        ~Q(status=TaskStatus.ERROR), ~Q(status=TaskStatus.REJECTED), pending=True),
-                ),
-                name='task_status_is_pending_integrity_check'
             ),
             CheckConstraint(
                 check=Q(
@@ -136,7 +109,7 @@ class Task(models.Model):
 
 class StatusHistoryPoint(models.Model):
 
-    task = models.ForeignKey(Task, on_delete=models.CASCADE)
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='status_history_points')
     created_at = models.DateTimeField(default=get_current_datetime)
     status = models.IntegerField(choices=_TaskStatus.choices)
 

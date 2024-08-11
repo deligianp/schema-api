@@ -389,7 +389,24 @@ class TaskRetrieveAPIView(RetrieveAPIView):
                             "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
                             "name": "task1.0",
                             "description": "test_task_description",
-                            "status": "RUNNING",
+                            "status_history": [
+                                {
+                                    "status": "SUBMITTED",
+                                    "updated_at": "2024-01-01T00:00:00.000000Z"
+                                },
+                                {
+                                    "status": "APPROVED",
+                                    "updated_at": "2024-01-01T00:00:01.000000Z"
+                                },
+                                {
+                                    "status": "SCHEDULED",
+                                    "updated_at": "2024-01-01T00:00:02.000000Z"
+                                },
+                                {
+                                    "status": "RUNNING",
+                                    "updated_at": "2024-01-01T00:00:03.000000Z"
+                                }
+                            ],
                             "submitted_at": "2023-03-03T06:58:54.426118Z",
                             "executors": [
                                 {
@@ -412,7 +429,24 @@ class TaskRetrieveAPIView(RetrieveAPIView):
                             "uuid": "90cd67f2-eb3c-485a-a93f-0e99a573ded0",
                             "name": "task1.0",
                             "description": "test_task_description",
-                            "status": "ERROR",
+                            "status_history": [
+                                {
+                                    "status": "SUBMITTED",
+                                    "updated_at": "2024-01-01T00:00:00.000000Z"
+                                },
+                                {
+                                    "status": "APPROVED",
+                                    "updated_at": "2024-01-01T00:00:01.000000Z"
+                                },
+                                {
+                                    "status": "SCHEDULED",
+                                    "updated_at": "2024-01-01T00:00:02.000000Z"
+                                },
+                                {
+                                    "status": "ERROR",
+                                    "updated_at": "2024-01-01T00:00:03.000000Z"
+                                }
+                            ],
                             "submitted_at": "2023-03-03T06:58:54.426118Z",
                             "executors": [
                                 {
@@ -435,7 +469,24 @@ class TaskRetrieveAPIView(RetrieveAPIView):
                             "uuid": "528d641d-e4ce-4c5b-8b69-aa6d42cf5d16",
                             "name": "hello world",
                             "description": "Complete example",
-                            "status": "COMPLETED",
+                            "status_history": [
+                                {
+                                    "status": "SUBMITTED",
+                                    "updated_at": "2024-01-01T00:00:00.000000Z"
+                                },
+                                {
+                                    "status": "APPROVED",
+                                    "updated_at": "2024-01-01T00:00:01.000000Z"
+                                },
+                                {
+                                    "status": "SCHEDULED",
+                                    "updated_at": "2024-01-01T00:00:02.000000Z"
+                                },
+                                {
+                                    "status": "COMPLETED",
+                                    "updated_at": "2024-01-01T00:00:03.000000Z"
+                                }
+                            ],
                             "submitted_at": "2023-03-06T14:02:52.146207Z",
                             "executors": [
                                 {

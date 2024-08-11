@@ -1,11 +1,10 @@
-from django.conf import settings
 from django.core.validators import MinValueValidator
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
 from api.constants import MountPointTypes
 from api.validators import NotEqualsValidator
-from util.serializers import OmitEmptyValuesMixin, KVPairsField, ModelMemberRelatedField
+from util.serializers import OmitEmptyValuesMixin, KVPairsField, ModelMemberRelatedField, LatestInstanceRelatedField
 
 
 class StrictSerializationMixin(serializers.Serializer):
@@ -90,12 +89,17 @@ class ResourcesSerializer(BaseSerializer):
         return super(ResourcesSerializer, self).validate(data)
 
 
+class StatusHistoryPointSerializer(serializers.Serializer):
+    status = serializers.CharField(read_only=True, source='get_status_display')
+    updated_at = serializers.DateTimeField(read_only=True, source='created_at')
+
+
 class TaskSerializer(BaseSerializer):
     context = serializers.CharField(source='context.name', read_only=True)
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
     description = serializers.CharField(required=False)
-    status = serializers.CharField(read_only=True)
+    status_history = StatusHistoryPointSerializer(many=True, read_only=True, source='status_history_points')
     submitted_at = serializers.DateTimeField(read_only=True)
     executors = ExecutorSerializer(many=True, allow_empty=False)
     inputs = InputMountPointSerializer(many=True, required=False, allow_empty=False)
@@ -109,7 +113,7 @@ class TaskSerializer(BaseSerializer):
 class TasksBasicListSerializer(serializers.Serializer):
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
-    status = serializers.CharField(read_only=True)
+    state = LatestInstanceRelatedField(StatusHistoryPointSerializer, ['-created_at'], source='status_history_points')
 
 
 class TasksDetailedListSerializer(TasksBasicListSerializer):
@@ -123,5 +127,3 @@ class TasksFullListSerializer(TasksDetailedListSerializer):
 
 class TasksListQPSerializer(serializers.Serializer):
     view = serializers.ChoiceField(('basic', 'detailed', 'full'), required=False, default='basic')
-
-
