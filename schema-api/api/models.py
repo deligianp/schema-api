@@ -87,10 +87,6 @@ class Task(models.Model):
     class Meta:
         constraints = [
             CheckConstraint(
-                check=~Q(name__regex=r'^\s*$'),
-                name='name_not_empty',
-            ),
-            CheckConstraint(
                 check=Q(
                     submitted_at__lt=F('latest_update'),
                 ),

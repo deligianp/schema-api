@@ -97,7 +97,7 @@ class StatusHistoryPointSerializer(serializers.Serializer):
 class TaskSerializer(BaseSerializer):
     context = serializers.CharField(source='context.name', read_only=True)
     uuid = serializers.UUIDField(read_only=True)
-    name = serializers.CharField()
+    name = serializers.CharField(required=False)
     description = serializers.CharField(required=False)
     status_history = StatusHistoryPointSerializer(many=True, read_only=True, source='status_history_points')
     submitted_at = serializers.DateTimeField(read_only=True)
