@@ -35,6 +35,10 @@ class AbstractTaskApi(metaclass=abc.ABCMeta):
     def get_executor_logs(self, task_id, executor_index):
         pass
 
+    @abc.abstractmethod
+    def cancel(self, task_id):
+        pass
+
 
 class BaseTaskApi(AbstractTaskApi, ABC):
 
@@ -46,6 +50,22 @@ class BaseTaskApi(AbstractTaskApi, ABC):
 
 
 class TesTaskApi(BaseTaskApi):
+    def cancel(self, task_id):
+        url = os.path.join(self.get_task_endpoint, task_id) + ":cancel"
+        r = requests.post(
+            headers={
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            url=url
+        )
+        if r.status_code == status.HTTP_200_OK:
+            return True
+        else:
+            if str(r.status_code)[0] == '4':
+                return False
+            raise RuntimeError('An error occurred when posting task to TES runtime')
+
     class PostTaskSerializer(TaskSerializer):
         pass
 
@@ -113,6 +133,7 @@ class TesTaskApi(BaseTaskApi):
 
     def create_task(self, task):
         task_data = self.PostTaskSerializer(task).data
+        task_data.setdefault('name', task_data.get('uuid'))
 
         # Remove fields that do not exist in TES
         task_data.pop('uuid', None)

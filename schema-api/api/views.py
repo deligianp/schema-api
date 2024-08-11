@@ -659,3 +659,40 @@ class TaskStderrAPIView(APIView):
         except Task.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND, data={'message': f'No task was found with UUID "{uuid}"'})
         return Response(status=status.HTTP_200_OK, data={'stderr': task_stderr})
+
+
+class TaskCancelAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsUser, IsContextMember] if settings.USE_AUTH else []
+
+    @extend_schema(
+        summary='Cancel a task',
+        description='Cancel a task, if it\'s still running.',
+        tags=['Task'],
+        parameters=[
+            OpenApiParameter('uuid', OpenApiTypes.UUID, OpenApiParameter.PATH,
+                             description='UUID of the target task that was assigned during submission', required=True,
+                             allow_blank=False, many=False, )
+        ],
+        responses={
+            202: OpenApiResponse(
+                description='Task was cancelled',
+            ),
+            400: OpenApiResponse(
+                description='Request was invalid. Response will contain information about potential errors in the '
+                            'request.'
+            ),
+            401: OpenApiResponse(
+                description='Authentication failed. Perhaps no API token was provided in the `Authorization` header, '
+                            'or the API token was invalid.'
+            ),
+            404: OpenApiResponse(
+                description='Given UUID does not match an existing task'
+            )
+        }
+    )
+    def post(self, request, uuid):
+        task_service = TaskService(context=request.context,
+                                   auth_entity=request.user) if settings.USE_AUTH else TaskService()
+        task_service.cancel_task(uuid)
+        return Response(status=status.HTTP_202_ACCEPTED)
