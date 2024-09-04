@@ -104,7 +104,6 @@ class Task(models.Model):
 
 
 class StatusHistoryPoint(models.Model):
-
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='status_history_points')
     created_at = models.DateTimeField(default=get_current_datetime)
     status = models.IntegerField(choices=_TaskStatus.choices)
@@ -250,6 +249,22 @@ class Tag(models.Model):
             )
         ]
 
+
+class TempTag(models.Model):
+    tasks = models.ManyToManyField(Task, related_name='temptags')
+    value = models.CharField(max_length=255)
+
+    class Meta:
+        constraints = [
+            UniqueConstraint(
+                fields=['value'],
+                name='tag_value_unique'
+            ),
+            CheckConstraint(
+                check=~Q(value__regex=r'^\s*$'),
+                name='tag_value_not_empty'
+            )
+        ]
 
 class ResourceSet(models.Model):
     task = models.OneToOneField(Task, on_delete=models.CASCADE, related_name='resources')
