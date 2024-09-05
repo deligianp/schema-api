@@ -10,8 +10,8 @@ from django.utils import timezone
 
 from api import taskapis
 from api.constants import _TaskStatus
-from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
-    Participation, StatusHistoryPoint
+from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, ExecutorOutputLog, Context, \
+    Participation, StatusHistoryPoint, TempTag
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
@@ -47,7 +47,7 @@ class TaskService:
         input_mount_points = optional.pop('inputs', None)
         output_mount_points = optional.pop('outputs', None)
         volumes = optional.pop('volumes', None)
-        tags = optional.pop('tags', None)
+        tags = optional.pop('temptags', None)
         resource_set = optional.pop('resources', None)
 
         task = Task.objects.create(context=self.context, user=self.auth_entity, **optional)
@@ -83,8 +83,10 @@ class TaskService:
             ResourceSet.objects.create(task=task)
 
         if tags:
-            for kv_pair in tags:
-                Tag.objects.create(task=task, **kv_pair)
+            tag_set = set(tags)
+            for tag in tag_set:
+                temp_tag = TempTag.objects.get_or_create(value=tag)[0]
+                task.temptags.add(temp_tag)
 
         quotas_service = QuotasService(task.context, task.user)
         context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
