@@ -2,7 +2,7 @@ import graphene
 from graphene_django import DjangoObjectType
 from graphene_django.filter import DjangoFilterConnectionField
 
-from api.models import Task, Executor, MountPoint, Env, Tag
+from api.models import Task, Executor, MountPoint, Env, TempTag
 
 
 class TaskType(DjangoObjectType):
@@ -27,7 +27,7 @@ class EnvType(DjangoObjectType):
 
 class TagType(DjangoObjectType):
     class Meta:
-        model = Tag
+        model = TempTag
 
 
 class Query(graphene.ObjectType):
