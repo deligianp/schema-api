@@ -236,8 +236,8 @@ class Volume(models.Model):
         ]
 
 
-class TempTag(models.Model):
-    tasks = models.ManyToManyField(Task, related_name='temptags')
+class Tag(models.Model):
+    tasks = models.ManyToManyField(Task, related_name='tags')
     value = models.CharField(max_length=255)
 
     class Meta:

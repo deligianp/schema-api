@@ -108,7 +108,7 @@ class TaskSerializer(BaseSerializer):
     volumes = ModelMemberRelatedField(target_field_name='path', child=serializers.CharField(), allow_empty=False,
                                       required=False)
     tags = ModelMemberRelatedField(target_field_name='value', child=serializers.CharField(), allow_empty=False,
-                                   required=False, source='temptags')
+                                   required=False)
 
 
 class TasksBasicListSerializer(serializers.Serializer):
