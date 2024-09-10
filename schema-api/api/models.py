@@ -236,20 +236,6 @@ class Volume(models.Model):
         ]
 
 
-class Tag(models.Model):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='tags')
-    key = models.CharField(max_length=255)
-    value = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        constraints = [
-            CheckConstraint(
-                check=~Q(key__regex=r'^\s*$'),
-                name='tag_key_not_empty'
-            )
-        ]
-
-
 class TempTag(models.Model):
     tasks = models.ManyToManyField(Task, related_name='temptags')
     value = models.CharField(max_length=255)

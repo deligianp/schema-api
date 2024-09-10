@@ -1,22 +1,6 @@
 from django.db import models
 
 
-class TaskStatus(models.TextChoices):
-    # Note: any change in this enum will require a migration, in order to update the underlying database constraints
-    # Note: removing or modifying any of these values may also impose issues for records that have the modified/deleted
-    # value
-    SUBMITTED = 'SUBMITTED', 'SUBMITTED'
-    APPROVED = 'APPROVED', 'APPROVED'
-    REJECTED = 'REJECTED', 'REJECTED'
-    SCHEDULED = 'SCHEDULED', 'SCHEDULED'
-    INITIALIZING = 'INITIALIZING', 'INITIALIZING'
-    RUNNING = 'RUNNING', 'RUNNING'
-    ERROR = 'ERROR', 'ERROR'
-    COMPLETED = 'COMPLETED', 'COMPLETED'
-    UNKNOWN = 'UNKNOWN', 'UNKNOWN'
-    CANCELED = 'CANCELED', 'CANCELED'
-
-
 class _TaskStatus(models.IntegerChoices):
     UNKNOWN = -1, 'UNKNOWN'
     SUBMITTED = 0, 'SUBMITTED'
