@@ -82,3 +82,5 @@ if LOGGING_CONF["FILES"]["DIRECTORY"]:
     }
     LOGGING['loggers']['']['handlers'].extend(['file', 'error-file'])
     LOGGING['loggers']['django']['handlers'].extend(['file', 'error-file'])
+
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', True)
