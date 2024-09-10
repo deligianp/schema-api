@@ -80,3 +80,6 @@ REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
     'anon': '10/minute',
     'user': '20/minute',
 }
+
+CORS_ALLOW_ALL_ORIGINS = env.bool('CORS_ALLOW_ALL_ORIGINS', False)
+CORS_ALLOWED_ORIGINS = env.list('CORS_ALLOWED_ORIGINS', [])
