@@ -2,7 +2,7 @@ import abc
 
 from django.db.models import Q, Sum
 
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 from api.models import Task
 from util.exceptions import ApplicationTaskQuotaDepletedError, ApplicationTaskQuotaExceedingRequestError
 
@@ -36,7 +36,7 @@ class DefaultQuotaPolicy(AbstractQuotaPolicy):
 
     def _check_max_cpu_cores(self, task: Task):
         allocated_cpu = Task.objects.filter(
-            ~Q(status__in=(_TaskStatus.SUBMITTED, _TaskStatus.REJECTED)), pending=True, context=task.context
+            ~Q(status__in=(TaskStatus.SUBMITTED, TaskStatus.REJECTED)), pending=True, context=task.context
         ).aggregate(Sum('resourceset__cpu_cores'))['resourceset__cpu_cores__sum'] or 0
         if allocated_cpu >= task.context.quotas.max_cpu:
             raise ApplicationTaskQuotaDepletedError('All CPU cores for this context are currently allocated')
@@ -49,11 +49,11 @@ class DefaultQuotaPolicy(AbstractQuotaPolicy):
     def _check_max_tasks(self, task: Task):
         context_tasks_qs = Task.objects.filter(context=task.context)
         n_completed_tasks = context_tasks_qs.filter(
-            Q(Q(status=_TaskStatus.COMPLETED) | Q(status=_TaskStatus.ERROR))).count()
+            Q(Q(status=TaskStatus.COMPLETED) | Q(status=TaskStatus.ERROR))).count()
         if n_completed_tasks >= task.context.quotas.max_tasks:
             raise ApplicationTaskQuotaDepletedError('All tasks reserved for this context have already been ran')
 
-        n_running_tasks = context_tasks_qs.filter(~Q(status__in=(_TaskStatus.REJECTED, _TaskStatus.SUBMITTED)),
+        n_running_tasks = context_tasks_qs.filter(~Q(status__in=(TaskStatus.REJECTED, TaskStatus.SUBMITTED)),
                                                   pending=True).count()
         if n_completed_tasks + n_running_tasks >= task.context.quotas.max_tasks:
             raise ApplicationTaskQuotaDepletedError(
@@ -61,7 +61,7 @@ class DefaultQuotaPolicy(AbstractQuotaPolicy):
 
     def _check_max_ram_gb(self, task: Task):
         allocated_ram_gb = Task.objects.filter(
-            ~Q(status__in=(_TaskStatus.SUBMITTED, _TaskStatus.REJECTED)), pending=True, context=task.context
+            ~Q(status__in=(TaskStatus.SUBMITTED, TaskStatus.REJECTED)), pending=True, context=task.context
         ).aggregate(Sum('resourceset__ram_gb'))['resourceset__ram_gb__sum'] or 0
         if allocated_ram_gb >= task.context.quotas.max_ram_gb:
             raise ApplicationTaskQuotaDepletedError('All RAM for this context is currently allocated')
@@ -72,7 +72,7 @@ class DefaultQuotaPolicy(AbstractQuotaPolicy):
             )
 
     def _check_max_active_tasks(self, task: Task):
-        if Task.objects.filter(~Q(status__in=(_TaskStatus.SUBMITTED, _TaskStatus.REJECTED)),
+        if Task.objects.filter(~Q(status__in=(TaskStatus.SUBMITTED, TaskStatus.REJECTED)),
                                pending=True, context=task.context).count() >= task.context.quotas.max_active_tasks:
             raise ApplicationTaskQuotaDepletedError(
                 'Maximum number of active/concurrent tasks for this context is currently running')

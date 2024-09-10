@@ -11,7 +11,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 from api.filtersets import TaskFilter
 from api.models import Task
 from api.serializers import TaskSerializer, TasksListQPSerializer, TasksBasicListSerializer, \
@@ -152,7 +152,7 @@ class TasksListCreateAPIView(ListCreateAPIView):
                              allow_blank=False, many=False, ),
             OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY,
                              description='Status to filter tasks on', required=False,
-                             allow_blank=False, many=False, enum=[x.label for x in _TaskStatus]),
+                             allow_blank=False, many=False, enum=[x.label for x in TaskStatus]),
             OpenApiParameter('before', OpenApiTypes.DATETIME, OpenApiParameter.QUERY,
                              description='Retrieve tasks submitted before this date', required=False,
                              allow_blank=False, many=False),
