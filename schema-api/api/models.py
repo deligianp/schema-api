@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import CheckConstraint, Q, UniqueConstraint, F
 
-from api.constants import TaskStatus, MountPointTypes, _TaskStatus
+from api.constants import MountPointTypes, _TaskStatus
 from util.constraints import ApplicationUniqueConstraint
 from util.decorators import update_fields
 from util.defaults import get_current_datetime
