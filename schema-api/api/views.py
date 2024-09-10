@@ -5,8 +5,7 @@ from django_filters import rest_framework as filters
 from drf_spectacular.extensions import OpenApiAuthenticationExtension
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiExample, OpenApiParameter, inline_serializer
-from rest_framework import viewsets, status, serializers
-from rest_framework.decorators import action
+from rest_framework import status, serializers
 from rest_framework.generics import ListCreateAPIView, RetrieveAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -23,7 +22,6 @@ from api_auth.permissions import IsUser, IsActive, IsContextMember
 from api_auth.serializers import ContextDetailsSerializer
 from quotas.serializers import QuotasSerializer
 from quotas.services import QuotasService
-from util.exceptions import ApplicationTaskQuotaError
 from util.paginators import ApplicationPagination
 
 logger = logging.getLogger(__name__)
@@ -154,7 +152,7 @@ class TasksListCreateAPIView(ListCreateAPIView):
                              allow_blank=False, many=False, ),
             OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY,
                              description='Status to filter tasks on', required=False,
-                             allow_blank=False, many=False, enum=[x[0] for x in TaskStatus.choices]),
+                             allow_blank=False, many=False, enum=[x.label for x in TaskStatus]),
             OpenApiParameter('before', OpenApiTypes.DATETIME, OpenApiParameter.QUERY,
                              description='Retrieve tasks submitted before this date', required=False,
                              allow_blank=False, many=False),

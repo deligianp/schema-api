@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import CheckConstraint, Q, UniqueConstraint, F
 
-from api.constants import TaskStatus, MountPointTypes, _TaskStatus
+from api.constants import MountPointTypes, TaskStatus
 from util.constraints import ApplicationUniqueConstraint
 from util.decorators import update_fields
 from util.defaults import get_current_datetime
@@ -104,21 +104,20 @@ class Task(models.Model):
 
 
 class StatusHistoryPoint(models.Model):
-
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='status_history_points')
     created_at = models.DateTimeField(default=get_current_datetime)
-    status = models.IntegerField(choices=_TaskStatus.choices)
+    status = models.IntegerField(choices=TaskStatus.choices)
 
     class Meta:
         constraints = [
             CheckConstraint(
-                check=Q(status__in=[choice.value for choice in _TaskStatus]),
+                check=Q(status__in=[choice.value for choice in TaskStatus]),
                 name='status_history_enum'
             ),
         ]
 
     def __str__(self):
-        return f'{self.task.uuid}: {_TaskStatus(self.status).label}({self.created_at.isoformat()})'
+        return f'{self.task.uuid}: {TaskStatus(self.status).label}({self.created_at.isoformat()})'
 
 
 # A model modified in such way that save() method is in effect only when it is the initial save of the instance
@@ -238,18 +237,20 @@ class Volume(models.Model):
 
 
 class Tag(models.Model):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='tags')
-    key = models.CharField(max_length=255)
-    value = models.CharField(max_length=255, blank=True)
+    tasks = models.ManyToManyField(Task, related_name='tags')
+    value = models.CharField(max_length=255)
 
     class Meta:
         constraints = [
+            UniqueConstraint(
+                fields=['value'],
+                name='tag_value_unique'
+            ),
             CheckConstraint(
-                check=~Q(key__regex=r'^\s*$'),
-                name='tag_key_not_empty'
+                check=~Q(value__regex=r'^\s*$'),
+                name='tag_value_not_empty'
             )
         ]
-
 
 class ResourceSet(models.Model):
     task = models.OneToOneField(Task, on_delete=models.CASCADE, related_name='resources')

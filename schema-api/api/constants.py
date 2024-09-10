@@ -1,23 +1,7 @@
 from django.db import models
 
 
-class TaskStatus(models.TextChoices):
-    # Note: any change in this enum will require a migration, in order to update the underlying database constraints
-    # Note: removing or modifying any of these values may also impose issues for records that have the modified/deleted
-    # value
-    SUBMITTED = 'SUBMITTED', 'SUBMITTED'
-    APPROVED = 'APPROVED', 'APPROVED'
-    REJECTED = 'REJECTED', 'REJECTED'
-    SCHEDULED = 'SCHEDULED', 'SCHEDULED'
-    INITIALIZING = 'INITIALIZING', 'INITIALIZING'
-    RUNNING = 'RUNNING', 'RUNNING'
-    ERROR = 'ERROR', 'ERROR'
-    COMPLETED = 'COMPLETED', 'COMPLETED'
-    UNKNOWN = 'UNKNOWN', 'UNKNOWN'
-    CANCELED = 'CANCELED', 'CANCELED'
-
-
-class _TaskStatus(models.IntegerChoices):
+class TaskStatus(models.IntegerChoices):
     UNKNOWN = -1, 'UNKNOWN'
     SUBMITTED = 0, 'SUBMITTED'
     APPROVED = 1, 'APPROVED'
@@ -50,4 +34,4 @@ class ErrorMessages:
     RESOURCE_SET_DISK_GB_MIN_VIOLATION = f'Amount of disk in GBs, must be at least 1GB'
     RESOURCE_SET_RAM_GB_MIN_VIOLATION = f'Amount of RAM in GBs, must be at least 1GB'
     TASK_STATUS_ENUM_VIOLATION = f'Task status must be any of the following ' \
-                                 f'values: {", ".join(_[0] for _ in TaskStatus.choices)}'
+                                 f'values: {", ".join(_.label for _ in TaskStatus)}'

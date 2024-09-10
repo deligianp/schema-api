@@ -107,7 +107,8 @@ class TaskSerializer(BaseSerializer):
     resources = ResourcesSerializer(required=False)
     volumes = ModelMemberRelatedField(target_field_name='path', child=serializers.CharField(), allow_empty=False,
                                       required=False)
-    tags = KVPairsField(required=False, child=serializers.CharField(allow_blank=True), allow_empty=False)
+    tags = ModelMemberRelatedField(target_field_name='value', child=serializers.CharField(), allow_empty=False,
+                                   required=False)
 
 
 class TasksBasicListSerializer(serializers.Serializer):

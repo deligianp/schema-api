@@ -9,9 +9,9 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from api import taskapis
-from api.constants import _TaskStatus
-from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, Tag, ExecutorOutputLog, Context, \
-    Participation, StatusHistoryPoint
+from api.constants import TaskStatus
+from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, ExecutorOutputLog, Context, \
+    Participation, StatusHistoryPoint, Tag
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
 from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
@@ -53,7 +53,7 @@ class TaskService:
         task = Task.objects.create(context=self.context, user=self.auth_entity, **optional)
 
         status_history_point_service = StatusHistoryPointService(task)
-        status_history_point_service.update_status(_TaskStatus.SUBMITTED)
+        status_history_point_service.update_status(TaskStatus.SUBMITTED)
 
         i = 0
         for executor in executors:
@@ -83,8 +83,10 @@ class TaskService:
             ResourceSet.objects.create(task=task)
 
         if tags:
-            for kv_pair in tags:
-                Tag.objects.create(task=task, **kv_pair)
+            tag_set = set(tags)
+            for tag in tag_set:
+                temp_tag = Tag.objects.get_or_create(value=tag)[0]
+                task.tags.add(temp_tag)
 
         quotas_service = QuotasService(task.context, task.user)
         context_quotas, participation_quotas = quotas_service.get_qualified_quotas()
@@ -92,7 +94,7 @@ class TaskService:
         TasksQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
         ActiveResourcesDbQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
 
-        status_history_point_service.update_status(_TaskStatus.APPROVED)
+        status_history_point_service.update_status(TaskStatus.APPROVED)
 
         if settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
             task_api_class = taskapis.get_task_api_class()
@@ -104,7 +106,7 @@ class TaskService:
             task.latest_update = timezone.now()
             task.save()
 
-            status_history_point_service.update_status(_TaskStatus.SCHEDULED)
+            status_history_point_service.update_status(TaskStatus.SCHEDULED)
         return task
 
     @transaction.atomic
@@ -118,7 +120,7 @@ class TaskService:
             task_info = task_api.get_task_info(task.task_id)
 
             task_status = task_info['status']
-            if task_status in [_TaskStatus.COMPLETED, _TaskStatus.ERROR, _TaskStatus.CANCELED]:
+            if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
                 task.pending = False
 
             status_history_point_service = StatusHistoryPointService(task)
@@ -147,7 +149,10 @@ class TaskService:
         return task
 
     def get_task(self, task_uuid: uuid.UUID):
-        task = Task.objects.get(context=self.context, uuid=task_uuid)
+        try:
+            task = Task.objects.get(context=self.context, uuid=task_uuid)
+        except Task.DoesNotExist as dne:
+            raise ApplicationNotFoundError(f'No task was found with UUID "{task_uuid}"') from dne
 
         task = self._check_if_update_task(task)
 
@@ -203,7 +208,7 @@ class StatusHistoryPointService:
     def __init__(self, task: Task):
         self.task = task
 
-    def update_status(self, status: _TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
+    def update_status(self, status: TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
         update_time = update_time or timezone.now()
         return StatusHistoryPoint.objects.create(task=self.task, status=status, created_at=update_time)
 
