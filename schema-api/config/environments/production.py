@@ -72,14 +72,16 @@ if LOGGING_CONF["FILES"]["DIRECTORY"]:
     LOGGING['loggers']['']['handlers'].extend(['file', 'error-file'])
     LOGGING['loggers']['django']['handlers'].extend(['file', 'error-file'])
 
-REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = [
-    'rest_framework.throttling.AnonRateThrottle',
-    'rest_framework.throttling.UserRateThrottle',
-]
-REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
-    'anon': '10/minute',
-    'user': '20/minute',
-}
+ENABLE_THROTTLING = env.bool('SCHEMA_API_ENABLE_THROTTLING', True)
+if ENABLE_THROTTLING:
+    REST_FRAMEWORK['DEFAULT_THROTTLE_CLASSES'] = [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ]
+    REST_FRAMEWORK['DEFAULT_THROTTLE_RATES'] = {
+        'anon': env.str('SCHEMA_API_ANON_THROTTLE_RATE', '10/minute'),
+        'user': env.str('SCHEMA_API_USER_THROTTLE_RATE', '20/minute'),
+    }
 
 CORS_ALLOW_ALL_ORIGINS = env.bool('SCHEMA_API_CORS_ALLOW_ALL_ORIGINS', False)
 CORS_ALLOWED_ORIGINS = env.list('SCHEMA_API_CORS_ALLOWED_ORIGINS', default=[])
