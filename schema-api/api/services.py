@@ -149,7 +149,10 @@ class TaskService:
         return task
 
     def get_task(self, task_uuid: uuid.UUID):
-        task = Task.objects.get(context=self.context, uuid=task_uuid)
+        try:
+            task = Task.objects.get(context=self.context, uuid=task_uuid)
+        except Task.DoesNotExist as dne:
+            raise ApplicationNotFoundError(f'No task was found with UUID "{task_uuid}"') from dne
 
         task = self._check_if_update_task(task)
 
