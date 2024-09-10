@@ -152,7 +152,7 @@ class TasksListCreateAPIView(ListCreateAPIView):
                              allow_blank=False, many=False, ),
             OpenApiParameter('status', OpenApiTypes.STR, OpenApiParameter.QUERY,
                              description='Status to filter tasks on', required=False,
-                             allow_blank=False, many=False, enum=[x.label for x in _TaskStatus.choices]),
+                             allow_blank=False, many=False, enum=[x.label for x in _TaskStatus]),
             OpenApiParameter('before', OpenApiTypes.DATETIME, OpenApiParameter.QUERY,
                              description='Retrieve tasks submitted before this date', required=False,
                              allow_blank=False, many=False),

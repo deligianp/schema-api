@@ -34,4 +34,4 @@ class ErrorMessages:
     RESOURCE_SET_DISK_GB_MIN_VIOLATION = f'Amount of disk in GBs, must be at least 1GB'
     RESOURCE_SET_RAM_GB_MIN_VIOLATION = f'Amount of RAM in GBs, must be at least 1GB'
     TASK_STATUS_ENUM_VIOLATION = f'Task status must be any of the following ' \
-                                 f'values: {", ".join(_[0] for _ in _TaskStatus.choices)}'
+                                 f'values: {", ".join(_.label for _ in _TaskStatus)}'
