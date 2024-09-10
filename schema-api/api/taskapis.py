@@ -8,7 +8,7 @@ import requests
 from django.conf import settings
 from rest_framework import status
 
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 from api.models import Task
 from api.serializers import TaskSerializer
 
@@ -107,15 +107,15 @@ class TesTaskApi(BaseTaskApi):
         return result
 
     TES_SCHEMA_STATUS_MAP = {
-        'UNKNOWN': _TaskStatus.UNKNOWN,
-        'INITIALIZING': _TaskStatus.INITIALIZING,
-        'QUEUED': _TaskStatus.INITIALIZING,
-        'RUNNING': _TaskStatus.RUNNING,
-        'PAUSED': _TaskStatus.RUNNING,
-        'COMPLETE': _TaskStatus.COMPLETED,
-        'EXECUTOR_ERROR': _TaskStatus.ERROR,
-        'SYSTEM_ERROR': _TaskStatus.ERROR,
-        'CANCELED': _TaskStatus.CANCELED
+        'UNKNOWN': TaskStatus.UNKNOWN,
+        'INITIALIZING': TaskStatus.INITIALIZING,
+        'QUEUED': TaskStatus.INITIALIZING,
+        'RUNNING': TaskStatus.RUNNING,
+        'PAUSED': TaskStatus.RUNNING,
+        'COMPLETE': TaskStatus.COMPLETED,
+        'EXECUTOR_ERROR': TaskStatus.ERROR,
+        'SYSTEM_ERROR': TaskStatus.ERROR,
+        'CANCELED': TaskStatus.CANCELED
     }
 
     def _get_task(self, task_id):

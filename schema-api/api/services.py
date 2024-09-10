@@ -9,7 +9,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from api import taskapis
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, ExecutorOutputLog, Context, \
     Participation, StatusHistoryPoint, Tag
 from api_auth.constants import AuthEntityType
@@ -53,7 +53,7 @@ class TaskService:
         task = Task.objects.create(context=self.context, user=self.auth_entity, **optional)
 
         status_history_point_service = StatusHistoryPointService(task)
-        status_history_point_service.update_status(_TaskStatus.SUBMITTED)
+        status_history_point_service.update_status(TaskStatus.SUBMITTED)
 
         i = 0
         for executor in executors:
@@ -94,7 +94,7 @@ class TaskService:
         TasksQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
         ActiveResourcesDbQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
 
-        status_history_point_service.update_status(_TaskStatus.APPROVED)
+        status_history_point_service.update_status(TaskStatus.APPROVED)
 
         if settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
             task_api_class = taskapis.get_task_api_class()
@@ -106,7 +106,7 @@ class TaskService:
             task.latest_update = timezone.now()
             task.save()
 
-            status_history_point_service.update_status(_TaskStatus.SCHEDULED)
+            status_history_point_service.update_status(TaskStatus.SCHEDULED)
         return task
 
     @transaction.atomic
@@ -120,7 +120,7 @@ class TaskService:
             task_info = task_api.get_task_info(task.task_id)
 
             task_status = task_info['status']
-            if task_status in [_TaskStatus.COMPLETED, _TaskStatus.ERROR, _TaskStatus.CANCELED]:
+            if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
                 task.pending = False
 
             status_history_point_service = StatusHistoryPointService(task)
@@ -191,7 +191,7 @@ class TaskService:
                     raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
 
                 status_history_point_service = StatusHistoryPointService(task)
-                status_history_point_service.update_status(_TaskStatus.CANCELED)
+                status_history_point_service.update_status(TaskStatus.CANCELED)
                 return
 
         raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
@@ -202,7 +202,7 @@ class StatusHistoryPointService:
     def __init__(self, task: Task):
         self.task = task
 
-    def update_status(self, status: _TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
+    def update_status(self, status: TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
         update_time = update_time or timezone.now()
         return StatusHistoryPoint.objects.create(task=self.task, status=status, created_at=update_time)
 

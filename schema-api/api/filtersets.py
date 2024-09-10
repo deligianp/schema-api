@@ -1,13 +1,13 @@
 from django.db.models import Q, OuterRef, Subquery
 from django_filters import rest_framework as filters
 
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 from api.models import StatusHistoryPoint
 
 
 class TaskFilter(filters.FilterSet):
     name = filters.CharFilter(field_name='name', lookup_expr='icontains')
-    status = filters.MultipleChoiceFilter(choices=[(c.label, c.value) for c in _TaskStatus], method='filter_by_status')
+    status = filters.MultipleChoiceFilter(choices=[(c.label, c.value) for c in TaskStatus], method='filter_by_status')
     after = filters.DateTimeFilter(field_name='submitted_at', lookup_expr='gte')
     before = filters.DateTimeFilter(field_name='submitted_at', lookup_expr='lt')
     order = filters.OrderingFilter(
@@ -25,7 +25,7 @@ class TaskFilter(filters.FilterSet):
         )
 
     def filter_by_status(self, queryset, name, value):
-        target_statuses = [_TaskStatus[v.upper()].value for v in value]
+        target_statuses = [TaskStatus[v.upper()].value for v in value]
 
         latest_statuses = StatusHistoryPoint.objects.filter(
             task=OuterRef('pk')
