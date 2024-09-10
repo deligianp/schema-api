@@ -2,7 +2,7 @@
 
 from django.db import migrations
 
-from api.constants import _TaskStatus
+from api.constants import TaskStatus
 
 
 def migrate_status_to_status_history_point(apps, schema_editor):
@@ -11,12 +11,12 @@ def migrate_status_to_status_history_point(apps, schema_editor):
 
     for task in Task.objects.all():
         new_status = None
-        for s in _TaskStatus:
+        for s in TaskStatus:
             if s.label == task.status:
                 new_status = s
                 break
         if new_status is None:
-            new_status = _TaskStatus.UNKNOWN
+            new_status = TaskStatus.UNKNOWN
 
         created_at = task.latest_update or task.submitted_at
         StatusHistoryPoint.objects.create(
