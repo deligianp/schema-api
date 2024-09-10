@@ -4,7 +4,7 @@ from django.conf import settings
 from django.db import models
 from django.db.models import CheckConstraint, Q, UniqueConstraint, F
 
-from api.constants import TaskStatus, MountPointTypes, _TaskStatus
+from api.constants import MountPointTypes, _TaskStatus
 from util.constraints import ApplicationUniqueConstraint
 from util.decorators import update_fields
 from util.defaults import get_current_datetime
@@ -232,20 +232,6 @@ class Volume(models.Model):
             CheckConstraint(
                 check=~Q(path__regex=r'^\s*$'),
                 name='path_not_empty',
-            )
-        ]
-
-
-class Tag(models.Model):
-    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='tags')
-    key = models.CharField(max_length=255)
-    value = models.CharField(max_length=255, blank=True)
-
-    class Meta:
-        constraints = [
-            CheckConstraint(
-                check=~Q(key__regex=r'^\s*$'),
-                name='tag_key_not_empty'
             )
         ]
 
