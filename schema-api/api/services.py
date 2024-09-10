@@ -193,9 +193,12 @@ class TaskService:
                 if not task_api.cancel(task_id):
                     raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
 
-                status_history_point_service = StatusHistoryPointService(task)
-                status_history_point_service.update_status(TaskStatus.CANCELED)
-                return
+            task.pending=False
+            task.save()
+
+            status_history_point_service = StatusHistoryPointService(task)
+            status_history_point_service.update_status(_TaskStatus.CANCELED)
+            return
 
         raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
 
