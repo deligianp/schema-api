@@ -28,7 +28,8 @@ INSTALLED_APPS = [
     'api',
     'files',
     'graphene_django',
-    'drf_spectacular'
+    'drf_spectacular',
+    'experiments'
 ]
 
 MIDDLEWARE = [
