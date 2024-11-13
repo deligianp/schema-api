@@ -4,7 +4,6 @@ from django.db import models
 
 from api.models import Task, Context
 from util.defaults import get_current_datetime
-from util.validators import validate_not_none
 
 
 # Create your models here.
