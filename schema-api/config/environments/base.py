@@ -137,6 +137,7 @@ AUTH_USER_MODEL = 'api_auth.AuthEntity'
 MIGRATION_MODULES = {
     'api': 'migrations.api',
     'api_auth': 'migrations.api_auth',
+    'experiments': 'migrations.experiments',
     'files': 'migrations.files',
     'monitor': 'migrations.monitor',
     'quotas': 'migrations.quotas'
