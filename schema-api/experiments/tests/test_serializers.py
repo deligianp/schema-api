@@ -8,7 +8,7 @@ from rest_framework import serializers
 from api.models import Task, Context
 from api_auth.services import AuthEntityService
 from experiments.models import Experiment
-from experiments.serializers import ExperimentsListSerializer, ExperimentSerializer
+from experiments.serializers import ExperimentsListSerializer, ExperimentSerializer, ExperimentUpdateSerializer
 
 # We want to test that the serialized datetime is actually the one we expect based on a static datetime in the tests
 #
@@ -176,5 +176,114 @@ class ExperimentSerializerTestCase(TestCase):
             'description': None
         }
         serializer = ExperimentSerializer(data=serialized)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+
+class ExperimentUpdateSerializerTestCase(TestCase):
+
+    @classmethod
+    def setUpTestData(cls):
+        UserModel = get_user_model()
+        cls.user = UserModel.objects.create(username='user')
+        cls.context = Context.objects.create(name='context', owner=cls.user)
+
+        cls.static_created_at = datetime(year=2020, month=1, day=2, hour=3, minute=4, second=5)
+
+        cls.exp0 = Experiment.objects.create(name='experiment0', description='experiment0_description',
+                                             created_at=cls.static_created_at, creator=cls.user,
+                                             context=cls.context)
+
+    def test_deserialize_experiment_data_only_with_provided_name(self):
+        serialized = {
+            'name': 'input_experiment',
+        }
+        expected = {
+            'name': 'input_experiment'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        serializer.is_valid(raise_exception=True)
+        self.assertDictEqual(expected, serializer.validated_data)
+
+
+    def test_deserialize_experiment_data_only_with_provided_description(self):
+        serialized = {
+            'description': 'input_experiment_description',
+        }
+        expected = {
+            'description': 'input_experiment_description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        serializer.is_valid(raise_exception=True)
+        self.assertDictEqual(expected, serializer.validated_data)
+
+    def test_deserialize_experiment_data_with_all_values_provided(self):
+        serialized = {
+            'name': 'input_experiment',
+            'description': 'input_experiment_description'
+        }
+        expected = {
+            'name': 'input_experiment',
+            'description': 'input_experiment_description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        serializer.is_valid(raise_exception=True)
+        self.assertDictEqual(expected, serializer.validated_data)
+
+    def test_deserialize_experiment_data_ignores_read_unknown_fields_if_given(self):
+        serialized = {
+            'name': 'input_experiment',
+            'created_at': '2020-01-01T00:00:00+00:00',
+            'creator': 'user'
+        }
+        expected = {
+            'name': 'input_experiment'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        serializer.is_valid(raise_exception=True)
+        self.assertDictEqual(expected, serializer.validated_data)
+
+    def test_deserialize_experiment_data_raises_error_when_name_is_none(self):
+        serialized = {
+            'name': None,
+            'description': 'Input experiment description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_deserialize_experiment_data_raises_error_when_name_is_empty(self):
+        serialized = {
+            'name': '',
+            'description': 'Input experiment description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_deserialize_experiment_data_raises_error_when_name_is_whitespace(self):
+        serialized = {
+            'name': '              ',
+            'description': 'Input experiment description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_deserialize_experiment_data_raises_error_when_name_is_not_slug(self):
+        serialized = {
+            'name': 'Input experiment',
+            'description': 'Input experiment description'
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
+        with self.assertRaises(serializers.ValidationError):
+            serializer.is_valid(raise_exception=True)
+
+    def test_deserialize_experiment_data_raises_error_when_description_is_none(self):
+        serialized = {
+            'name': 'input_experiment',
+            'description': None
+        }
+        serializer = ExperimentUpdateSerializer(data=serialized)
         with self.assertRaises(serializers.ValidationError):
             serializer.is_valid(raise_exception=True)

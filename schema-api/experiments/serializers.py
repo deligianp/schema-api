@@ -19,3 +19,10 @@ class ExperimentSerializer(serializers.ModelSerializer):
         model = Experiment
         fields = ('name', 'description', 'created_at', 'creator')
         read_only_fields = ('created_at',)
+
+
+class ExperimentUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Experiment
+        fields = ('name', 'description')
+        extra_kwargs = {'name': {'required': False}}
