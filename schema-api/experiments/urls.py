@@ -4,6 +4,6 @@ from experiments.views import ExperimentTasksAPIView, ExperimentDetailsAPIView, 
 
 urlpatterns = [
     path(r'experiments', ExperimentsAPIView.as_view(), name='experiments'),
-    path(r'experiments/<name>', ExperimentDetailsAPIView.as_view(), name='experiment-details'),
-    path(r'experiments/<name>/tasks', ExperimentTasksAPIView.as_view(), name='experiment-tasks'),
+    path(r'experiments/<username>/<name>', ExperimentDetailsAPIView.as_view(), name='experiment-details'),
+    path(r'experiments/<username>/<name>/tasks', ExperimentTasksAPIView.as_view(), name='experiment-tasks'),
 ]

@@ -15,17 +15,17 @@ class ExperimentsUrlsTestCase(TestCase):
         self.assertEqual(resolved.func.view_class, ExperimentsAPIView)
 
     def test_reverse_experiment_details_is_expected_url(self):
-        expected_url = '/reproducibility/experiments/exp0'
-        self.assertEqual(reverse('experiment-details', args=['exp0']), expected_url)
+        expected_url = '/reproducibility/experiments/creator0/exp0'
+        self.assertEqual(reverse('experiment-details', args=['creator0', 'exp0']), expected_url)
 
     def test_experiment_details_url_routes_to_expected_api_view(self):
-        resolved = resolve('/reproducibility/experiments/exp0')
+        resolved = resolve('/reproducibility/experiments/creator0/exp0')
         self.assertEqual(resolved.func.view_class, ExperimentDetailsAPIView)
 
     def test_reverse_experiment_tasks_is_expected_url(self):
-        expected_url = '/reproducibility/experiments/exp0/tasks'
-        self.assertEqual(reverse('experiment-tasks', args=['exp0']), expected_url)
+        expected_url = '/reproducibility/experiments/creator0/exp0/tasks'
+        self.assertEqual(reverse('experiment-tasks', args=['creator0','exp0']), expected_url)
 
     def test_experiment_tasks_url_routes_to_expected_api_view(self):
-        resolved = resolve('/reproducibility/experiments/exp0/tasks')
+        resolved = resolve('/reproducibility/experiments/creator0/exp0/tasks')
         self.assertEqual(resolved.func.view_class, ExperimentTasksAPIView)
