@@ -70,7 +70,14 @@ class TesTaskApi(BaseTaskApi):
         pass
 
     def get_tasks(self):
-        return []
+        task_content = self._get_tasks()
+        result = []
+        for t in task_content['tasks']:
+            d=self.get_executor_logs(t['id'], task_content=t)
+            d['status'] = self.get_task_status(t['id'], task_content=t)
+            d['task_id'] = t['id']
+            result.append(d)
+        return result
 
     def get_task_info(self, task_id):
         task_content = self._get_task(task_id)
@@ -120,6 +127,19 @@ class TesTaskApi(BaseTaskApi):
 
     def _get_task(self, task_id):
         qualified_url = f'{os.path.join(self.get_task_endpoint, task_id)}?view=FULL'
+        r = requests.get(url=qualified_url)
+        if r.status_code == status.HTTP_200_OK:
+            response_content = json.loads(r.content)
+            return response_content
+        else:
+            if str(r.status_code)[0] == '4':
+                # log that request sent from schema-api was invalid
+                # potential error that must be fixed in schema-api
+                pass
+            raise RuntimeError('An error occurred when retrieving task from TES runtime')
+
+    def _get_tasks(self):
+        qualified_url = f'{self.get_task_endpoint}?view=FULL'
         r = requests.get(url=qualified_url)
         if r.status_code == status.HTTP_200_OK:
             response_content = json.loads(r.content)

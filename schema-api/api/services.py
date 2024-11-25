@@ -110,6 +110,36 @@ class TaskService:
         return task
 
     @transaction.atomic
+    def _update_task_by_task_info(self, task, task_info):
+        task_status = task_info['status']
+        if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
+            task.pending = False
+
+        status_history_point_service = StatusHistoryPointService(task)
+        status_history_point_service.update_status(task_status)
+
+        executors_stderr = task_info['stderr'] if 'stderr' in task_info else ['']
+        executors_stdout = task_info['stdout'] if 'stdout' in task_info else ['']
+        n_executors_logged = len(executors_stdout)
+        task_executors = task.executors.all().order_by('order')[:n_executors_logged].prefetch_related(
+            'executoroutputlog'
+        )
+        for i in range(n_executors_logged):
+            task_executor = task_executors[i]
+            executor_stdout = executors_stdout[i]
+            executor_stderr = executors_stderr[i]
+            try:
+                executor_output_log = ExecutorOutputLog.objects.get(executor=task_executor)
+            except ExecutorOutputLog.DoesNotExist:
+                executor_output_log = ExecutorOutputLog()
+            executor_output_log.stdout = executor_stdout
+            executor_output_log.stderr = executor_stderr
+            executor_output_log.executor = task_executor
+            executor_output_log.save()
+
+        task.save()
+
+    @transaction.atomic
     def _check_if_update_task(self, task):
         if task.pending and \
                 not settings.DISABLE_TASK_SCHEDULING and \
@@ -148,6 +178,21 @@ class TaskService:
             task.save()
         return task
 
+    def _check_if_update_tasks(self):
+        if not settings.DISABLE_TASK_SCHEDULING:
+            task_api_class = taskapis.get_task_api_class()
+            task_api = task_api_class()
+
+            tasks_content = task_api.get_tasks()
+
+            task_data_index = {t['task_id']: t for t in tasks_content}
+
+            db_tasks = Task.objects.filter(task_id__in=task_data_index, pending=True)
+            db_tasks_data_mappings = {t.task_id: (t, task_data_index[t.task_id]) for t in db_tasks}
+
+            for tup in db_tasks_data_mappings.values():
+                self._update_task_by_task_info(*tup)
+
     def get_task(self, task_uuid: uuid.UUID):
         try:
             task = Task.objects.get(context=self.context, uuid=task_uuid)
@@ -177,6 +222,8 @@ class TaskService:
         return executors_stderr
 
     def get_tasks(self) -> QuerySet[Task]:
+        if settings.UPDATE_STATE_ON_TASKS_LISTING:
+            self._check_if_update_tasks()
         return Task.objects.filter(context=self.context)
 
     def cancel_task(self, task_uuid: uuid.UUID) -> None:
@@ -193,11 +240,11 @@ class TaskService:
                 if not task_api.cancel(task_id):
                     raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
 
-            task.pending=False
+            task.pending = False
             task.save()
 
             status_history_point_service = StatusHistoryPointService(task)
-            status_history_point_service.update_status(_TaskStatus.CANCELED)
+            status_history_point_service.update_status(TaskStatus.CANCELED)
             return
 
         raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
