@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
     target_class = 'api_auth.auth.ApiTokenAuthentication'
-    name = 'API token'
+    name = 'API key'
 
     def get_security_definition(self, auto_schema):
         return {
@@ -37,8 +37,8 @@ class ApplicationApiTokenScheme(OpenApiAuthenticationExtension):
             'in': 'header',
             'name': 'Authorization',
             'description':
-                f'Token-based authentication with required prefix `{settings.AUTHORIZATION_HEADER_PREFIX} `.\n\ne.g. '
-                f'For API token of `abcdef1234567890`, value must be `{settings.AUTHORIZATION_HEADER_PREFIX} '
+                f'API key-based authentication with required prefix `{settings.AUTHORIZATION_HEADER_PREFIX} `.\n\ne.g. '
+                f'For API key of `abcdef1234567890`, value must be `{settings.AUTHORIZATION_HEADER_PREFIX} '
                 f'abcdef1234567890`.'
         }
 
