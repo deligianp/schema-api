@@ -39,6 +39,8 @@ class ApplicationDuplicateError(ApplicationValidationError):
 class ApplicationNotFoundError(ApplicationError):
     pass
 
+class ApplicationWorkflowParsingError(ApplicationValidationError):
+    pass
 
 class ApplicationErrorHelper:
 
@@ -141,7 +143,8 @@ def convert_to_drf_validation_error(err: ValidationError):
         data = err.message_dict if hasattr(err, 'message_dict') else {NON_FIELD_ERRORS: err.messages}
         if NON_FIELD_ERRORS in data:
             data[DRF_NON_FIELD_ERRORS] = data[NON_FIELD_ERRORS]
-            del data[NON_FIELD_ERRORS]
+            if NON_FIELD_ERRORS != DRF_NON_FIELD_ERRORS:
+                del data[NON_FIELD_ERRORS]
 
         exc = rest_framework.exceptions.ValidationError(detail=data)
         return exc
@@ -153,6 +156,8 @@ def custom_exception_handler(exc: Exception, context):
         response = exception_handler(drf_exc, context)
         if type(exc) is ApplicationDuplicateError:
             response.status_code = status.HTTP_409_CONFLICT
+        elif type(exc) is ApplicationWorkflowParsingError:
+            response.status_code = status.HTTP_400_BAD_REQUEST
     elif issubclass(type(exc), ApplicationNotFoundError):
         response = exception_handler(rest_framework.exceptions.NotFound(detail=exc), context)
     elif issubclass(type(exc), QuotaViolationError):

@@ -6,3 +6,7 @@ deployment/
 .git
 .dockerignore
 .gitignore
+
+schema-api/**/tests/
+**/__pycache__
+**.sqlite3

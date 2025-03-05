@@ -1,21 +1,35 @@
-FROM python:3.11
-
-ENV SCHEMA_API_DEPLOYMENT production
+FROM python:3.11-slim-bookworm as build
 
 RUN mkdir -p /schema-api
 
-WORKDIR /schema-api
+WORKDIR /schema-api-build
+
+RUN python -m venv /venv
+
+ENV PATH="/venv/bin:$PATH"
+
+RUN pip install --upgrade pip
+
+RUN pip install psycopg2-binary uvicorn pipenv
+
+COPY Pipfile Pipfile.lock ./
+
+RUN pipenv requirements > requirements.txt && pip install -r requirements.txt --no-cache-dir
+
+FROM python:3.11-alpine
+
+ENV SCHEMA_API_DEPLOYMENT production
 
 EXPOSE 8000
 
-RUN pip3 install pipenv
+COPY --from=build /venv /venv
 
-COPY Pipfile.lock Pipfile.lock
+ENV PATH="/venv/bin:$PATH"
 
-RUN pipenv requirements > requirements.txt && pip3 install -r requirements.txt --no-cache-dir
+RUN pip3 uninstall -y pyopenssl cryptography pyasn1 cffi && pip3 install --no-cache-dir pyopenssl cryptography pyasn1 cffi
 
-RUN pip3 install psycopg2-binary gunicorn uvicorn
+WORKDIR /schema-api
 
 COPY schema-api/ .
 
-CMD ["gunicorn", "--bind", ":8000", "-k", "uvicorn.workers.UvicornWorker", "schema_api.asgi"]
+CMD ["uvicorn", "schema_api.asgi:application", "--host", "0.0.0.0", "--port", "8000"]

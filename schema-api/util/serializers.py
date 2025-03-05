@@ -54,3 +54,16 @@ class OmitEmptyValuesMixin:
         repr_dict = super(OmitEmptyValuesMixin, self).to_representation(value)
         return OrderedDict((k, v) for k, v in repr_dict.items()
                            if v not in [None, [], '', {}])
+
+class IntegerListField(serializers.ListField):
+
+    def __init__(self, **kwargs):
+        kwargs['child'] = serializers.IntegerField()
+        super().__init__(**kwargs)
+
+    def to_internal_value(self, data):
+        value = super(IntegerListField, self).to_internal_value(data)
+        return repr(value)
+
+    def to_representation(self, value):
+        return eval(value)

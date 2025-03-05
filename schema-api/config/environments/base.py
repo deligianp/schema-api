@@ -23,13 +23,15 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'django_filters',
+    'core',
     'api_auth',
     'quotas',
     'api',
     'files',
+    'workflows',
+    'experiments',
     'graphene_django',
-    'drf_spectacular',
-    'experiments'
+    'drf_spectacular'
 ]
 
 MIDDLEWARE = [
@@ -140,7 +142,8 @@ MIGRATION_MODULES = {
     'experiments': 'migrations.experiments',
     'files': 'migrations.files',
     'monitor': 'migrations.monitor',
-    'quotas': 'migrations.quotas'
+    'quotas': 'migrations.quotas',
+    'workflows': 'migrations.workflows'
 }
 
 POSTGRES_DATABASE_CONFIGURATION = {

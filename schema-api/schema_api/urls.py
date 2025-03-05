@@ -22,6 +22,7 @@ from django.conf import settings
 urlpatterns = [
     path('schema/', SpectacularAPIView.as_view(), name='schema'),
     # Optional UI:
+    path('api/workflows', include('workflows.urls')),
     path('api/', include('api.urls')),
     path('admin/', admin.site.urls),
     path('monitor/', include('monitor.urls')),
