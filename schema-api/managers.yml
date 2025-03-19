@@ -1,0 +1,15 @@
+#Register here your scheduling manager classes
+#
+#Example:
+#
+#managers:
+#  - name: manager
+#    class_path: 'SynchronousTesWorkflowManager'
+#    enabled: yes
+#    configuration:
+#      tasks: yes
+#      workflows:
+#        languages:
+#          - language: native
+#            versions: '*'
+#            use-definition: yes

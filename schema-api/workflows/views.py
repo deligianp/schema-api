@@ -1,3 +1,5 @@
+import base64
+
 from django.conf import settings
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, OpenApiResponse, OpenApiParameter
@@ -5,6 +7,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from semantic_version import Version
 
 from api.constants import TaskStatus
 from api_auth.auth import ApiTokenAuthentication
@@ -12,8 +15,8 @@ from api_auth.permissions import IsUser, IsContextMember
 from util.paginators import ApplicationPagination
 from workflows.filters import WorkflowFilter
 from workflows.serializers import WorkflowSerializer, WorkflowsListQPSerializer, WorkflowsFullListSerializer, \
-    WorkflowsDetailedListSerializer, WorkflowsBasicListSerializer
-from workflows.services import WorkflowService
+    WorkflowsDetailedListSerializer, WorkflowsBasicListSerializer, WorkflowSpecificationSerializer
+from workflows.services import WorkflowService, WorkflowSpecificationService
 
 
 # Create your views here.
@@ -169,3 +172,22 @@ class WorkflowCancelAPIView(APIView):
         ws.cancel_workflow(uuid)
 
         return Response(status=status.HTTP_202_ACCEPTED)
+
+
+class WorkflowSpecificationAPIView(APIView):
+    authentication_classes = [ApiTokenAuthentication] if settings.USE_AUTH else []
+    permission_classes = [IsAuthenticated, IsContextMember] if settings.USE_AUTH else []
+
+    def post(self, request):
+        workflow_specification_serializer = WorkflowSpecificationSerializer(data=request.data)
+        workflow_specification_serializer.is_valid(raise_exception=True)
+
+        validated = workflow_specification_serializer.validated_data
+
+        version = Version(validated['version']) if validated.get('version', None) else None
+        specification = base64.b64decode(validated['content'].encode('utf-8')).decode('utf-8')
+
+        wss = WorkflowSpecificationService(request.user, request.context, language=validated['language'], version=version)
+        workflow = wss.execute_workflow_specification(specification)
+
+        return Response(status=status.HTTP_201_CREATED, data=WorkflowSerializer(workflow).data)

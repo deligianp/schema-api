@@ -1,9 +1,9 @@
 from rest_framework import serializers
 from rest_framework.exceptions import ValidationError
 
-from util.serializers import KVPairsField, LatestInstanceRelatedField, IntegerListField
+from util.serializers import KVPairsField, LatestInstanceRelatedField, IntegerListField, SemverField
 from workflows.models import WorkflowExecutorYield, WorkflowExecutor, WorkflowInputMountPoint, WorkflowOutputMountPoint, \
-    WorkflowResourceSet, Workflow
+    WorkflowResourceSet, Workflow, WorkflowSpecification
 
 
 class WorkflowExecutorYieldSerializer(serializers.ModelSerializer):
@@ -102,3 +102,19 @@ class WorkflowSerializer(serializers.ModelSerializer):
                 detail='Provided execution order references a non-existent executor\'s index'
             )
         return execution_order
+
+
+class WorkflowSpecificationSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = WorkflowSpecification
+        exclude = ['workflow', 'id']
+
+
+class WorkflowManagerLanguageSerializer(serializers.Serializer):
+    language = serializers.CharField()
+    versions = SemverField(default='*')
+    use_definition = serializers.BooleanField(default=False)
+
+class WorkflowManagerSerializer(serializers.Serializer):
+    languages = WorkflowManagerLanguageSerializer(many=True, required=False, allow_empty=False)

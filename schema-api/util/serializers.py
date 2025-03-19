@@ -1,6 +1,7 @@
 from collections import OrderedDict
 
 from rest_framework import serializers
+from semantic_version import NpmSpec
 
 
 class KVPairsField(serializers.DictField):
@@ -67,3 +68,12 @@ class IntegerListField(serializers.ListField):
 
     def to_representation(self, value):
         return eval(value)
+
+class SemverField(serializers.CharField):
+
+    def to_internal_value(self, data):
+        data = super(SemverField, self).to_internal_value(data)
+        try:
+            return str(NpmSpec(data)) if data!='*' else data
+        except ValueError as ve:
+            raise serializers.ValidationError from ve

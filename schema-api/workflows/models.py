@@ -6,6 +6,7 @@ from api.models import Context
 from core.models import BaseSchedulable, BaseExecutor, BaseEnv, BaseInputMountPoint, BaseMountPoint, BaseResourceSet, \
     BaseTag
 from util.defaults import get_current_datetime
+from workflows.constants import WorkflowLanguages
 
 
 # Create your models here.
@@ -18,6 +19,13 @@ class Workflow(BaseSchedulable):
     context = models.ForeignKey(Context, null=True, on_delete=models.SET_NULL)
     execution_order = models.CharField(max_length=255, blank=True)
     submitted_at = models.DateTimeField(default=get_current_datetime)
+
+
+class WorkflowSpecification(models.Model):
+    workflow = models.OneToOneField(Workflow, on_delete=models.CASCADE, related_name='specification')
+    language = models.CharField(choices=WorkflowLanguages.choices, max_length=32)
+    version = models.CharField(max_length=16, blank=True)
+    content = models.TextField(blank=True)
 
 
 class WorkflowStatusLog(models.Model):

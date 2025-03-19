@@ -1,3 +1,4 @@
+import json
 from copy import deepcopy
 
 from django.conf import settings
@@ -6,10 +7,61 @@ from django.db.models import QuerySet
 
 from api.constants import TaskStatus
 from api.models import Context
+from core.apps import MANAGERS
+from workflows.constants import WorkflowLanguages
 from workflows.models import Workflow, WorkflowExecutor, WorkflowExecutorYield, WorkflowEnv, WorkflowInputMountPoint, \
-    WorkflowOutputMountPoint, WorkflowResourceSet, WorkflowTag, WorkflowStatusLog
+    WorkflowOutputMountPoint, WorkflowResourceSet, WorkflowTag, WorkflowStatusLog, WorkflowSpecification
 from workflows.parsers import NativeWorkflowManager
-from workflows.apps import WORKFLOW_MANAGER_CLASS
+
+
+class WorkflowSpecificationService:
+
+    def __init__(self, user: settings.AUTH_USER_MODEL, context: Context, language: WorkflowLanguages,
+                 version: str = None):
+        self.user = user
+        self.context = context
+        self.language = language
+        self.version = version
+
+    @transaction.atomic
+    def execute_workflow_specification(self, specification: str):
+
+        if self.language == WorkflowLanguages.NATIVE:
+            native_workflow = json.loads(specification)
+        # elif self.language == other workflow language:
+        #   invoke language parser that produces native_workflow
+        else:
+            raise ValueError(
+                'No parser was found for language {} (version: {})'.format(self.language, self.version or 'any'))
+
+        workflow_service = WorkflowService(self.user, self.context)
+        workflow = workflow_service.submit_workflow(**native_workflow, specification=specification)
+
+        workflow_specification = WorkflowSpecification.objects.create(
+            workflow=workflow, language=self.language, version=self.version if self.version else '', content=specification
+        )
+
+        workflow_managers = MANAGERS.get('workflows',{})
+        candidate_managers = workflow_managers.get(self.language, [])
+
+        if candidate_managers:
+            if not self.version:
+                qualified_manager = candidate_managers[0]
+
+            else:
+                # Take the first that supports the submitted workflow's version
+                try:
+                    qualified_manager = next(m for m in candidate_managers if self.version in m['versions'])
+                except StopIteration:
+                    raise Exception()
+
+            manager = qualified_manager['class']()
+            manager.run(specification if qualified_manager['use_definition'] else native_workflow)
+
+            workflow_status_log_service = WorkflowStatusLogService(workflow=workflow)
+            workflow_status_log_service.set_status(TaskStatus.SCHEDULED)
+
+        return workflow
 
 
 class WorkflowService:
@@ -19,7 +71,7 @@ class WorkflowService:
         self.context = context
 
     @transaction.atomic
-    def submit_workflow(self, **workflow_definition):
+    def submit_workflow(self, specification=None, **workflow_definition):
 
         # Validate and resolve order of execution
         layers = NativeWorkflowManager.validate(workflow_definition)
@@ -118,7 +170,7 @@ class WorkflowStatusLogService:
         self.workflow = workflow
 
     def set_status(self, status: TaskStatus, **optional) -> WorkflowStatusLog:
-        return WorkflowStatusLog.objects.create(workflow=self.workflow,  value=status, **optional)
+        return WorkflowStatusLog.objects.create(workflow=self.workflow, value=status, **optional)
 
     def get_current_status(self) -> WorkflowStatusLog:
         return WorkflowStatusLog.objects.filter(workflow=self.workflow).order_by('-status', '-created_at').first()
