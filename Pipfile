@@ -18,6 +18,8 @@ boto3 = "*"
 psycopg2-binary = "*"
 dj-database-url = "*"
 django-cors-headers = "*"
+pyyaml = "*"
+semantic-version = "*"
 
 [dev-packages]
 ddt = "*"
