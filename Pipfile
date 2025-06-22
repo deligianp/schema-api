@@ -21,6 +21,8 @@ django-cors-headers = "*"
 django-redis = "*"
 pyyaml = "*"
 semantic-version = "*"
+dpath = "*"
+redis = "*"
 
 [dev-packages]
 ddt = "*"

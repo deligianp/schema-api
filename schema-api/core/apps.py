@@ -2,7 +2,9 @@ import importlib
 import inspect
 import logging
 import os
+from collections import OrderedDict
 
+import dpath
 import yaml
 from django.apps import AppConfig
 from django.conf import settings
@@ -19,12 +21,12 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         global MANAGERS
+        MANAGERS = self.load_managers()
+
+    def load_managers(self):
         from core.serializers import ManagerConfigFileSerializer
 
-        managers = {
-            'tasks': [],
-            'workflows': {}
-        }
+        managers = {}
         manager_config_path = settings.MANAGER_CONFIG_PATH
         if not manager_config_path or not os.path.exists(manager_config_path):
             return
@@ -36,40 +38,10 @@ class CoreConfig(AppConfig):
         manager_serializer.is_valid(raise_exception=True)
 
         validated_data = manager_serializer.validated_data
-        if validated_data:
-            for manager_config in validated_data['managers']:
-                tasks_config = self.parse_task_manager_configuration(manager_config)
-
-                managers.setdefault('tasks', [])
-                managers['tasks'].extend(tasks_config)
-
-                workflows_config = self.parse_workflow_manager_configuration(manager_config)
-
-                managers.setdefault('workflows', {})
-                managers['workflows'] = {
-                    l: managers['workflows'].get(l, []) + (workflows_config[l])
-                    for l in workflows_config
-                }
-
-        if managers['tasks']:
-            task_managers_descriptors = [
-                f'- {m["name"]} at {m["class"].__module__}.{m["class"].__name__}' for m in managers['tasks']
-            ]
-            logger.debug('Mapped managers for tasks: \n'
-                         '{}'.format('\n'.join(task_managers_descriptors)))
-
-        if managers['workflows']:
-            workflow_managers_descriptors = [
-                f'- for {l} (versions: {m["versions"]}), {m["name"]} at {m["class"].__module__}.{m["class"].__name__}'
-                for l in managers['workflows'] for m in managers['workflows'][l]
-            ]
-
-            logger.debug('Mapped managers for workflows: \n'
-                         '{}'.format('\n'.join(workflow_managers_descriptors)))
-        MANAGERS = managers
+        managers = self.parse_managers_configuration(validated_data)
+        return managers
 
     def discover_workflow_manager(self, path: str):
-        from core.managers import BaseWorkflowManager
         try:
             module_path, class_name = path.rsplit('.', 1)
         except ValueError:
@@ -77,7 +49,7 @@ class CoreConfig(AppConfig):
             class_name = path
 
         if not module_path:
-            module_path = 'workflows.managers'
+            module_path = 'core.managers'
             class_name = path.split('.', 1)[0]
 
         try:
@@ -85,67 +57,58 @@ class CoreConfig(AppConfig):
             try:
                 return next(
                     obj for name, obj in inspect.getmembers(module, inspect.isclass)
-                    if name == class_name and issubclass(obj, BaseWorkflowManager)
-                    and obj is not BaseWorkflowManager
+                    if name == class_name
                 )
             except StopIteration as si:
                 raise ImportError from si
         except ImportError as ie:
             raise ImproperlyConfigured(f'Defined workflow manager "{path}" cannot be found.') from ie
 
-    def parse_task_manager_configuration(self, manager_configuration):
-        name = manager_configuration['name']
-        enabled = manager_configuration['enabled']
-        if not enabled:
-            return
-
-        try:
-            use_for_tasks = manager_configuration['configuration']['tasks']
-        except KeyError:
-            return None
-
-        if not use_for_tasks:
-            return None
-
-        manager_class = self.discover_workflow_manager(manager_configuration['class_path'])
-
-        return [
-            {
-                'name': name,
-                'class': manager_class,
-            }
-        ]
-
-    def parse_workflow_manager_configuration(self, manager_configuration):
+    def parse_managers_configuration(self, managers_configuration):
         from workflows.constants import WorkflowLanguages
 
-        workflow_managers = dict()
-        name = manager_configuration['name']
-        enabled = manager_configuration['enabled']
-        if not enabled:
-            return
+        manager_registry = {
+            'tasks': None,
+            'supported_versions': dict(),
+            'managers': dict()
+        }
+        if managers_configuration:
+            for manager_config in managers_configuration.get('managers', []):
+                if not manager_config['enabled']:
+                    continue
+                name = manager_config['name']
+                manager_class = self.discover_workflow_manager(manager_config['class_path'])
+                use_definition = dpath.get(manager_config, 'configuration/workflows/use_definition', default=False)
 
-        try:
-            languages_config = manager_configuration['configuration']['workflows']['languages']
-        except KeyError:
-            return
+                try:
+                    workflow_manager_options = dpath.values(
+                        settings.WORKFLOWS, f'MANAGER_ARGS/{name}'
+                    )[0]
+                except IndexError:
+                    workflow_manager_options = {}
+                workflow_manager = manager_class(**workflow_manager_options)
 
-        for language_config in languages_config:
-            try:
-                language = WorkflowLanguages(value=language_config['language'])
-            except ValueError:
-                logger.warning(
-                    f'Manager {name} defines an unsupported workflow language: {language_config["language"]}')
-                continue
+                manager_registry['managers'][name] = {
+                    'manager_ref': workflow_manager,
+                    'use_definition': use_definition
+                }
 
-            manager_class = self.discover_workflow_manager(manager_configuration['class_path'])
+                languages_config = dpath.values(manager_config, 'configuration/workflows/languages/*')
+                for l in languages_config:
+                    try:
+                        language = WorkflowLanguages(value=l['language'])
+                    except ValueError:
+                        logger.warning(
+                            f'Manager {name} defines an unsupported workflow language: {l["language"]}')
+                        continue
+                    versions = l['versions']
+                    manager_registry['supported_versions'].setdefault(language, OrderedDict())
+                    manager_registry['supported_versions'][language].setdefault(versions, list())
+                    manager_registry['supported_versions'][language][versions].append(name)
 
-            workflow_managers.setdefault(language, [])
-            workflow_managers[language].append({
-                "name": name,
-                "class": manager_class,
-                "versions": language_config['versions'],
-                'use_definition': language_config['use_definition'],
-            }
-            )
-        return workflow_managers
+                # Set the manager to be delegated tasks only if it is the first manager that is defined to do so
+                if not manager_registry['tasks'] and \
+                        dpath.get(manager_config, 'configuration/delegate_tasks', default=False):
+                    manager_registry['tasks'] = name
+
+        return manager_registry

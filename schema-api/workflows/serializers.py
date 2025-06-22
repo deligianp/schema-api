@@ -109,12 +109,3 @@ class WorkflowSpecificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkflowSpecification
         exclude = ['workflow', 'id']
-
-
-class WorkflowManagerLanguageSerializer(serializers.Serializer):
-    language = serializers.CharField()
-    versions = SemverField(default='*')
-    use_definition = serializers.BooleanField(default=False)
-
-class WorkflowManagerSerializer(serializers.Serializer):
-    languages = WorkflowManagerLanguageSerializer(many=True, required=False, allow_empty=False)

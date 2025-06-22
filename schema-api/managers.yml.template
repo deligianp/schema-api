@@ -10,6 +10,6 @@
 #      tasks: yes
 #      workflows:
 #        languages:
-#          - language: native
+#          - language: SNWL
 #            versions: '*'
 #            use-definition: yes
