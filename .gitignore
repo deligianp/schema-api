@@ -12,3 +12,6 @@ schema_api/local_settings.py
 
 # Environment variables file
 schema-api/.env
+
+# Managers configuration file
+schema-api/managers.yml
