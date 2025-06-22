@@ -21,7 +21,7 @@ class Workflow(BaseSchedulable):
     submitted_at = models.DateTimeField(default=get_current_datetime)
 
 
-class WorkflowSpecification(models.Model):
+class WorkflowDefinition(models.Model):
     workflow = models.OneToOneField(Workflow, on_delete=models.CASCADE, related_name='specification')
     language = models.CharField(choices=WorkflowLanguages.choices, max_length=32)
     version = models.CharField(max_length=16, blank=True)
@@ -66,3 +66,9 @@ class WorkflowResourceSet(BaseResourceSet):
 
 class WorkflowTag(BaseTag):
     workflow = models.ManyToManyField(Workflow, related_name='tags')
+
+
+class WorkflowExecutorOutputLog(models.Model):
+    executor = models.OneToOneField(WorkflowExecutor, on_delete=models.CASCADE)
+    stdout = models.JSONField(default=list)
+    stderr = models.JSONField(default=list)

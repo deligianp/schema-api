@@ -63,11 +63,11 @@ class Task(models.Model):
         help_text='A unique UUID for identifying a task on this API',
         unique=True
     )
-    task_id = models.CharField(
+    backend_ref = models.CharField(
         help_text='Task ID that assigned to task by underlying API',
-        max_length=255,
-        db_column='api_task_id'
+        max_length=255
     )
+    manager_name = models.CharField(help_text='Manager name handling the execution', max_length=255)
     name = models.CharField(help_text='User-provided name', max_length=255)
     description = models.TextField(help_text='User-provided description')
     pending = models.BooleanField(

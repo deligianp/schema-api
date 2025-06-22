@@ -6,12 +6,13 @@ class TaskStatus(models.IntegerChoices):
     SUBMITTED = 0, 'SUBMITTED'
     APPROVED = 1, 'APPROVED'
     REJECTED = 2, 'REJECTED'
-    SCHEDULED = 3, 'SCHEDULED'
-    INITIALIZING = 4, 'INITIALIZING'
-    RUNNING = 5, 'RUNNING'
-    COMPLETED = 6, 'COMPLETED'
-    ERROR = 7, 'ERROR'
-    CANCELED = 8, 'CANCELED'
+    QUEUED = 3, 'QUEUED'
+    SCHEDULED = 4, 'SCHEDULED'
+    INITIALIZING = 5, 'INITIALIZING'
+    RUNNING = 6, 'RUNNING'
+    COMPLETED = 7, 'COMPLETED'
+    ERROR = 8, 'ERROR'
+    CANCELED = 9, 'CANCELED'
 
 
 class MountPointTypes(models.TextChoices):

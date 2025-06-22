@@ -1,7 +1,7 @@
+import uuid
+
 from django.conf import settings
 from django.db import models
-
-import uuid
 
 from api.constants import TaskStatus, MountPointTypes
 from util.defaults import get_current_datetime
@@ -14,6 +14,7 @@ class BaseSchedulable(models.Model):
         help_text='Backend reference ID assigned to a scheduled execution by underlying execution API',
         max_length=255
     )
+    manager_name = models.CharField(help_text='Manager name handling the execution', max_length=255)
     name = models.CharField(help_text='User-provided name', max_length=255, blank=True)
     description = models.TextField(help_text='User-provided description', blank=True)
 
@@ -27,6 +28,7 @@ class BaseStatus(models.Model):
 
     class Meta:
         abstract = True
+
 
 class BaseExecutionStateLog(models.Model):
     updated_at = models.DateTimeField(default=get_current_datetime)
