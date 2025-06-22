@@ -7,10 +7,6 @@ __pycache__/
 # Virtual environment directory
 venv/
 
-# Django application migration files
-schema-api/migrations/*/*
-!schema-api/migrations/*/__init__.py
-
 # Django local settings
 schema_api/local_settings.py
 
