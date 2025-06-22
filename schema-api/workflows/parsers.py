@@ -12,7 +12,8 @@ class RequirementsYieldsCatalogEntry:
     requirements: Optional[Set[str]] = field(default_factory=set)
     yields: Optional[Set[str]] = field(default_factory=set)
 
-class NativeWorkflowManager:
+
+class SchemaNativeWorkflowParser:
     METAVARIABLE_NAMING_PATTERN = r'[a-zA-Z][a-zA-Z0-9_]+'
     METAVARIABLE_MARKER_PATTERN = r'\$\$'
 
@@ -31,7 +32,7 @@ class NativeWorkflowManager:
     def substitute_metavariables(cls, definition: str, metavariable_context: Dict[str, Any]) -> str:
         substituted_definition = ''
         latest_match_end_idx = 0
-        for match in NativeWorkflowManager.parse_metavariable_context(definition):
+        for match in cls.parse_metavariable_context(definition):
             metavariable = match.group(2)
 
             # TODO: examine whether check may be dropped in the future so that undefined metavariables just keep
@@ -40,7 +41,8 @@ class NativeWorkflowManager:
                 # raise ValueError('Metavariable {} not defined in context'.format(metavariable))
                 continue
 
-            substituted_definition += definition[latest_match_end_idx:match.start()] + str(metavariable_context[metavariable])
+            substituted_definition += definition[latest_match_end_idx:match.start()] + str(
+                metavariable_context[metavariable])
             latest_match_end_idx = match.end()
         substituted_definition += definition[latest_match_end_idx:]
         return substituted_definition
@@ -173,7 +175,6 @@ class NativeWorkflowManager:
 
         return layers
 
-
     @classmethod
     def validate(cls, workflow_definition: Dict[str, Any]) -> List[Set[int]]:
         requirements_yields_matrix = cls.get_requirements_and_yields(workflow_definition)
@@ -183,7 +184,7 @@ class NativeWorkflowManager:
     def resolve(cls,
                 workflow_definition: Dict[str, Any],
                 layers: List[Set[int]],
-                scoring_function = lambda ex: ex.get('priority', -math.inf)) -> List[int]:
+                scoring_function=lambda ex: ex.get('priority', -math.inf)) -> List[int]:
         flattened_execution_order = list()
         for layer in layers:
             if len(layer) > 1:
@@ -198,3 +199,33 @@ class NativeWorkflowManager:
             else:
                 flattened_execution_order.append(layer.pop())
         return flattened_execution_order
+
+    @classmethod
+    def validate_order(cls, workflow_definition: Dict[str, Any], order: List[int]):
+        requirements_yields_matrix = cls.get_requirements_and_yields(workflow_definition)
+
+        satisfied_requirements = set(requirements_yields_matrix.pop(0).yields)
+
+        expected_yields = set(requirements_yields_matrix.pop(-1).requirements)
+
+        for executor_idx in order:
+            try:
+                executor_ray = requirements_yields_matrix[executor_idx]
+            except IndexError:
+                raise ApplicationWorkflowParsingError(
+                    f'Provided workflow execution order references an invalid executor index')
+            executor_requirements = set(executor_ray.requirements)
+            unmet_dependencies = executor_requirements.difference(satisfied_requirements)
+            if len(unmet_dependencies) == 0:
+                satisfied_requirements = satisfied_requirements.union(executor_ray.yields)
+            else:
+                raise ApplicationWorkflowParsingError(
+                    f'Provided workflow execution order is invalid. Executor with index {executor_idx} requires '
+                    f'transient file named "{unmet_dependencies.pop()}", but no such file is set to be persisted by '
+                    f'previous executors')
+
+        unmet_dependencies = expected_yields.difference(satisfied_requirements)
+        if len(unmet_dependencies) > 0:
+            raise ApplicationWorkflowParsingError(
+                f'Provided workflow execution order is invalid. Workflow output layer requires transient file named '
+                f'"{unmet_dependencies.pop()}", but no such file is set to be persisted by the defined executors')

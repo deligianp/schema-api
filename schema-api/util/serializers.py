@@ -15,7 +15,7 @@ class KVPairsField(serializers.DictField):
 
     def to_representation(self, value):
         kv_pairs = value.all()
-        return {kvp.key: kvp.value for kvp in kv_pairs}
+        return {kvp.key: kvp.status for kvp in kv_pairs}
 
 
 class ModelMemberRelatedField(serializers.ListField):

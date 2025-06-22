@@ -30,7 +30,7 @@ class WorkflowDefinition(models.Model):
 
 class WorkflowStatusLog(models.Model):
     workflow = models.ForeignKey(Workflow, on_delete=models.CASCADE, related_name='status_logs')
-    value = models.IntegerField(choices=TaskStatus.choices)
+    status = models.IntegerField(choices=TaskStatus.choices)
     created_at = models.DateTimeField(default=get_current_datetime)
 
 

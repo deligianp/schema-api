@@ -114,7 +114,8 @@ class TaskSerializer(BaseSerializer):
 class TasksBasicListSerializer(serializers.Serializer):
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
-    state = LatestInstanceRelatedField(StatusHistoryPointSerializer, ['-created_at'], source='status_history_points')
+    current_status = LatestInstanceRelatedField(StatusHistoryPointSerializer, ['-created_at'],
+                                                source='status_history_points')
 
 
 class TasksDetailedListSerializer(TasksBasicListSerializer):

@@ -1,4 +1,8 @@
 import re
+from typing import Dict, Set
+
+from core.apps import MANAGERS
+from core.managers.base import BaseExecutionManager
 
 
 def normalize_version_definition(version: str) -> str:

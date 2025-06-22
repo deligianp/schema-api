@@ -12,6 +12,10 @@ class ApplicationError(Exception):
     pass
 
 
+class ApplicationMissingExecutionError(ApplicationError):
+    pass
+
+
 class ApplicationImplicitPermissionError(ApplicationError):
     pass
 

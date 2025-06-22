@@ -1,8 +1,8 @@
-from django.db.models import Q, OuterRef, Subquery
+from django.db.models import Q
 from django_filters import rest_framework as filters
 
 from api.constants import TaskStatus
-from api.models import StatusHistoryPoint
+from api.services import TaskStatusLogService
 
 
 class TaskFilter(filters.FilterSet):
@@ -25,14 +25,6 @@ class TaskFilter(filters.FilterSet):
         )
 
     def filter_by_status(self, queryset, name, value):
-        target_statuses = [TaskStatus[v.upper()].value for v in value]
 
-        latest_statuses = StatusHistoryPoint.objects.filter(
-            task=OuterRef('pk')
-        ).order_by('-created_at')
-
-        tasks_with_latest_status = queryset.annotate(
-            latest_status=Subquery(latest_statuses.values('status')[:1])
-        )
-
-        return tasks_with_latest_status.filter(latest_status__in=target_statuses)
+        target_statuses = [TaskStatus[v] for v in value]
+        return TaskStatusLogService.filter_tasks_by_status(queryset, target_statuses)

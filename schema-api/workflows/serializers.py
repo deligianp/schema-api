@@ -3,7 +3,7 @@ from rest_framework.exceptions import ValidationError
 
 from util.serializers import KVPairsField, LatestInstanceRelatedField, IntegerListField, SemverField
 from workflows.models import WorkflowExecutorYield, WorkflowExecutor, WorkflowInputMountPoint, WorkflowOutputMountPoint, \
-    WorkflowResourceSet, Workflow, WorkflowSpecification
+    WorkflowResourceSet, Workflow, WorkflowDefinition
 
 
 class WorkflowExecutorYieldSerializer(serializers.ModelSerializer):
@@ -67,7 +67,7 @@ class WorkflowStatusLogSerializer(serializers.Serializer):
 class WorkflowsBasicListSerializer(serializers.Serializer):
     uuid = serializers.UUIDField(read_only=True)
     name = serializers.CharField()
-    state = LatestInstanceRelatedField(WorkflowStatusLogSerializer, ['-created_at'], source='status_logs')
+    current_status = LatestInstanceRelatedField(WorkflowStatusLogSerializer, ['-created_at'], source='status_logs')
 
 
 class WorkflowsDetailedListSerializer(WorkflowsBasicListSerializer):
@@ -88,13 +88,13 @@ class WorkflowSerializer(serializers.ModelSerializer):
     inputs = WorkflowInputMountPointSerializer(many=True, allow_empty=False, required=False)
     outputs = WorkflowOutputMountPointSerializer(many=True, allow_empty=False, required=False)
     resources = WorkflowResourceSetSerializer(required=False)
-    state = WorkflowStatusLogSerializer(many=True, read_only=True, source='status_logs')
+    status_history = WorkflowStatusLogSerializer(many=True, read_only=True, source='status_logs')
     execution_order = IntegerListField(required=False)
 
     class Meta:
         model = Workflow
         read_only_fields = ['uuid']
-        exclude = ['backend_ref', 'id', 'user', 'context']
+        exclude = ['backend_ref', 'id', 'user', 'context', 'manager_name']
 
     def validate_execution_order(self, execution_order):
         if any(filter(lambda idx: idx>=len(self.initial_data['executors']), eval(execution_order))):
@@ -104,8 +104,8 @@ class WorkflowSerializer(serializers.ModelSerializer):
         return execution_order
 
 
-class WorkflowSpecificationSerializer(serializers.ModelSerializer):
+class WorkflowDefinitionSerializer(serializers.ModelSerializer):
 
     class Meta:
-        model = WorkflowSpecification
+        model = WorkflowDefinition
         exclude = ['workflow', 'id']

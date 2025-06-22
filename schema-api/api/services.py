@@ -1,19 +1,25 @@
-import datetime
+import json
 import uuid
-from typing import Iterable
+from collections import defaultdict
+from datetime import datetime
+from typing import Iterable, List, Tuple
 
 from django.conf import settings
-from django.core.exceptions import ValidationError
+from django.core.exceptions import ValidationError, MultipleObjectsReturned
 from django.db import transaction
-from django.db.models import QuerySet
+from django.db.models import QuerySet, OuterRef, Subquery
 from django.utils import timezone
 
 from api import taskapis
 from api.constants import TaskStatus
 from api.models import Task, Executor, Env, MountPoint, Volume, ResourceSet, ExecutorOutputLog, Context, \
     Participation, StatusHistoryPoint, Tag
+from api.serializers import TaskSerializer
+from api.utils import get_task_manager
 from api_auth.constants import AuthEntityType
 from api_auth.models import AuthEntity
+from core.managers.base import ExecutionManifest, ExecutionDetails, UserInfo
+from core.utils import get_manager
 from quotas.evaluators import ActiveResourcesDbQuotasEvaluator, RequestedResourcesQuotasEvaluator, TasksQuotasEvaluator
 from quotas.models import ContextQuotas
 from quotas.services import QuotasService
@@ -52,8 +58,8 @@ class TaskService:
 
         task = Task.objects.create(context=self.context, user=self.auth_entity, **optional)
 
-        status_history_point_service = StatusHistoryPointService(task)
-        status_history_point_service.update_status(TaskStatus.SUBMITTED)
+        task_status_log_service = TaskStatusLogService(task)
+        task_status_log_service.log_status_update(TaskStatus.SUBMITTED)
 
         i = 0
         for executor in executors:
@@ -94,118 +100,35 @@ class TaskService:
         TasksQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
         ActiveResourcesDbQuotasEvaluator.evaluate(context_quotas, participation_quotas, task)
 
-        status_history_point_service.update_status(TaskStatus.APPROVED)
+        task_status_log_service.log_status_update(TaskStatus.APPROVED)
 
-        if settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
-            task_api_class = taskapis.get_task_api_class()
-            task_api = task_api_class(auth_entity=self.auth_entity)
-
-            task_id = task_api.create_task(task)
-
-            task.task_id = task_id
-            task.latest_update = timezone.now()
-            task.save()
-
-            status_history_point_service.update_status(TaskStatus.SCHEDULED)
-        return task
-
-    @transaction.atomic
-    def _update_task_by_task_info(self, task, task_info):
-        task_status = task_info['status']
-        if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
-            task.pending = False
-
-        status_history_point_service = StatusHistoryPointService(task)
-        status_history_point_service.update_status(task_status)
-
-        executors_stderr = task_info['stderr'] if 'stderr' in task_info else ['']
-        executors_stdout = task_info['stdout'] if 'stdout' in task_info else ['']
-        n_executors_logged = len(executors_stdout)
-        task_executors = task.executors.all().order_by('order')[:n_executors_logged].prefetch_related(
-            'executoroutputlog'
-        )
-        for i in range(n_executors_logged):
-            task_executor = task_executors[i]
-            executor_stdout = executors_stdout[i]
-            executor_stderr = executors_stderr[i]
-            try:
-                executor_output_log = ExecutorOutputLog.objects.get(executor=task_executor)
-            except ExecutorOutputLog.DoesNotExist:
-                executor_output_log = ExecutorOutputLog()
-            executor_output_log.stdout = executor_stdout
-            executor_output_log.stderr = executor_stderr
-            executor_output_log.executor = task_executor
-            executor_output_log.save()
-
-        task.save()
-
-    @transaction.atomic
-    def _check_if_update_task(self, task):
-        if task.pending and \
-                not settings.DISABLE_TASK_SCHEDULING and \
-                (task.latest_update - timezone.now()).seconds > settings.TASK_API['DB_TASK_STATUS_TTL_SECONDS']:
-            task_api_class = taskapis.get_task_api_class()
-            task_api = task_api_class()
-
-            task_info = task_api.get_task_info(task.task_id)
-
-            task_status = task_info['status']
-            if task_status in [TaskStatus.COMPLETED, TaskStatus.ERROR, TaskStatus.CANCELED]:
-                task.pending = False
-
-            status_history_point_service = StatusHistoryPointService(task)
-            status_history_point_service.update_status(task_status)
-
-            executors_stderr = task_info['stderr'] if 'stderr' in task_info else ['']
-            executors_stdout = task_info['stdout'] if 'stdout' in task_info else ['']
-            n_executors_logged = len(executors_stdout)
-            task_executors = task.executors.all().order_by('order')[:n_executors_logged].prefetch_related(
-                'executoroutputlog'
+        task_serializer = TaskSerializer(task)
+        task_data = task_serializer.data
+        if manager_name := get_task_manager():
+            manager = get_manager(manager_name)
+            execution_details = ExecutionDetails(definition=json.dumps(task_data), is_task=True)
+            user_info = UserInfo(unique_id=str(self.auth_entity.uuid), username=self.auth_entity.username,
+                                 fs_user_dir=self.auth_entity.profile.fs_user_dir)
+            execution_manifest = ExecutionManifest(
+                execution=execution_details, user_info=user_info, context_id=str(self.context.id)
             )
-            for i in range(n_executors_logged):
-                task_executor = task_executors[i]
-                executor_stdout = executors_stdout[i]
-                executor_stderr = executors_stderr[i]
-                try:
-                    executor_output_log = ExecutorOutputLog.objects.get(executor=task_executor)
-                except ExecutorOutputLog.DoesNotExist:
-                    executor_output_log = ExecutorOutputLog()
-                executor_output_log.stdout = executor_stdout
-                executor_output_log.stderr = executor_stderr
-                executor_output_log.executor = task_executor
-                executor_output_log.save()
+            task.backend_ref = manager.submit(execution_manifest)
+            task.manager_name = manager_name
 
             task.save()
+
+            task_status_log_service.log_status_update(TaskStatus.QUEUED)
         return task
-
-    def _check_if_update_tasks(self):
-        if not settings.DISABLE_TASK_SCHEDULING:
-            task_api_class = taskapis.get_task_api_class()
-            task_api = task_api_class()
-
-            tasks_content = task_api.get_tasks()
-
-            task_data_index = {t['task_id']: t for t in tasks_content}
-
-            db_tasks = Task.objects.filter(task_id__in=task_data_index, pending=True)
-            db_tasks_data_mappings = {t.task_id: (t, task_data_index[t.task_id]) for t in db_tasks}
-
-            for tup in db_tasks_data_mappings.values():
-                self._update_task_by_task_info(*tup)
 
     def get_task(self, task_uuid: uuid.UUID):
         try:
-            task = Task.objects.get(context=self.context, uuid=task_uuid)
+            task = self.get_tasks().get(uuid=task_uuid)
         except Task.DoesNotExist as dne:
             raise ApplicationNotFoundError(f'No task was found with UUID "{task_uuid}"') from dne
-
-        task = self._check_if_update_task(task)
-
         return task
 
     def get_task_stdout(self, task_uuid: uuid.UUID):
-        task = Task.objects.get(context=self.context, uuid=task_uuid)
-        task = self._check_if_update_task(task)
+        task = self.get_task(task_uuid)
 
         executors_stdout = [
             executor_output_log.stdout for executor_output_log in ExecutorOutputLog.objects.filter(executor__task=task)
@@ -213,8 +136,7 @@ class TaskService:
         return executors_stdout
 
     def get_task_stderr(self, task_uuid: uuid.UUID):
-        task = Task.objects.get(context=self.context, uuid=task_uuid)
-        task = self._check_if_update_task(task)
+        task = self.get_task(task_uuid)
 
         executors_stderr = [
             executor_output_log.stderr for executor_output_log in ExecutorOutputLog.objects.filter(executor__task=task)
@@ -222,32 +144,42 @@ class TaskService:
         return executors_stderr
 
     def get_tasks(self) -> QuerySet[Task]:
-        if settings.UPDATE_STATE_ON_TASKS_LISTING:
-            self._check_if_update_tasks()
-        return Task.objects.filter(context=self.context)
+        return Task.objects.filter(context=self.context, user=self.auth_entity)
 
     def cancel_task(self, task_uuid: uuid.UUID) -> None:
         task = self.get_task(task_uuid)
 
-        if task.pending:
+        task_status_log_service = TaskStatusLogService(task)
 
-            task_id = task.task_id
-
-            if task_id and settings.TASK_API["TASK_API_CLASS"] and not settings.DISABLE_TASK_SCHEDULING:
-                task_api_class = taskapis.get_task_api_class()
-                task_api = task_api_class(auth_entity=self.auth_entity)
-
-                if not task_api.cancel(task_id):
-                    raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
-
-            task.pending = False
-            task.save()
-
-            status_history_point_service = StatusHistoryPointService(task)
-            status_history_point_service.update_status(TaskStatus.CANCELED)
+        if not task_status_log_service.is_task_pending():
             return
 
-        raise ApplicationValidationError({'uuid': f'Task with UUID \'{task_uuid}\' has already terminated'})
+        # If manager no longer exists in configuration, then raise an uncaught error
+        # Probably will have to change it in the future
+        manager = get_manager(task.manager_name)
+
+        manager.cancel(task.backend_ref)
+        task_status_log_service.log_status_update(TaskStatus.CANCELED, avoid_duplicates=True)
+
+    @staticmethod
+    @transaction.atomic
+    def synchronize_dispatched_executions(tasks_qs: QuerySet[Task]):
+
+        grouped = defaultdict(list)
+        for t in tasks_qs:
+            grouped[t.manager_name].append(t)
+
+        for manager_name, manager_tasks in grouped.items():
+            backend_refs = [w.backend_ref for w in manager_tasks]
+
+            manager = get_manager(manager_name)
+            live_data_map = dict(manager.list(ref_ids=backend_refs))
+
+            for t in manager_tasks:
+                task_live_data = live_data_map[t.backend_ref]
+
+                task_status_log_service = TaskStatusLogService(t)
+                task_status_log_service.update_live_data(task_live_data.status_history)
 
 
 class StatusHistoryPointService:
@@ -255,7 +187,7 @@ class StatusHistoryPointService:
     def __init__(self, task: Task):
         self.task = task
 
-    def update_status(self, status: TaskStatus, update_time: datetime.datetime = None) -> StatusHistoryPoint:
+    def update_status(self, status: TaskStatus, update_time: datetime = None) -> StatusHistoryPoint:
         update_time = update_time or timezone.now()
         return StatusHistoryPoint.objects.create(task=self.task, status=status, created_at=update_time)
 
@@ -264,6 +196,63 @@ class StatusHistoryPointService:
 
     def get_current_status(self) -> StatusHistoryPoint:
         return self.get_status_history().first()
+
+
+class TaskStatusLogService:
+
+    def __init__(self, task: Task):
+        self.task = task
+
+    @staticmethod
+    def filter_tasks_by_status(queryset: QuerySet[Task], statuses: Iterable[TaskStatus]) -> QuerySet[
+        Task]:
+
+        latest_statuses = StatusHistoryPoint.objects.filter(
+            task=OuterRef('pk')
+        ).order_by('-status', '-created_at')
+
+        tasks_with_latest_status = queryset.annotate(
+            latest_status=Subquery(latest_statuses.values('status')[:1])
+        )
+
+        return tasks_with_latest_status.filter(latest_status__in=statuses)
+
+    @transaction.atomic
+    def update_live_data(self, live_status_history: List[Tuple[TaskStatus, datetime]]):
+        for sl in live_status_history:
+            self.log_status_update(sl[0], created_at=sl[1], avoid_duplicates=True)
+
+    def log_status_update(self, status: TaskStatus, avoid_duplicates: bool = False, **optional) -> StatusHistoryPoint:
+        if avoid_duplicates:
+            try:
+                status_history_point, created = StatusHistoryPoint.objects.get_or_create(
+                    task=self.task, status=status, defaults={
+                        **optional,
+                        "task": self.task,
+                        "status": status
+                    }
+                )
+                return status_history_point
+            except MultipleObjectsReturned:
+                return StatusHistoryPoint.objects.filter(task=self.task, status=status).order_by(
+                    '-created_at').first()
+        else:
+            return StatusHistoryPoint.objects.create(task=self.task, status=status, **optional)
+
+    def get_current_status(self) -> StatusHistoryPoint:
+        return StatusHistoryPoint.objects.filter(task=self.task).order_by('-status', '-created_at').first()
+
+    def is_task_pending(self) -> bool:
+        current_status = self.get_current_status()
+        return TaskStatus.SUBMITTED <= current_status.status <= TaskStatus.RUNNING
+
+    def is_task_dispatched(self) -> bool:
+        current_status = self.get_current_status()
+        return TaskStatus.QUEUED <= current_status.status <= TaskStatus.RUNNING
+
+    def does_task_await_dispatch(self):
+        current_status = self.get_current_status()
+        return TaskStatus.SUBMITTED <= current_status.status < TaskStatus.QUEUED
 
 
 class ParticipationService:

@@ -125,7 +125,7 @@ class TasksListCreateAPIView(ListCreateAPIView):
     filterset_class = TaskFilter
 
     def get_queryset(self):
-        task_service = TaskService(context=self.request.context) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=self.request.context, auth_entity=self.request.user)
         return task_service.get_tasks()
 
     def get_serializer_class(self):
@@ -533,7 +533,7 @@ class TaskRetrieveAPIView(RetrieveAPIView):
         }
     )
     def get(self, request, uuid, **kwargs):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.context, auth_entity=request.user)
         try:
             task = task_service.get_task(uuid)
         except Task.DoesNotExist:
@@ -599,7 +599,7 @@ class TaskStdoutAPIView(APIView):
         }
     )
     def get(self, request, uuid):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.context, auth_entity=request.user)
         try:
             task_stdout = task_service.get_task_stdout(uuid)
         except Task.DoesNotExist:
@@ -651,7 +651,7 @@ class TaskStderrAPIView(APIView):
         }
     )
     def get(self, request, uuid):
-        task_service = TaskService(context=request.context) if settings.USE_AUTH else TaskService()
+        task_service = TaskService(context=request.context, auth_entity=request.user)
         try:
             task_stderr = task_service.get_task_stderr(uuid)
         except Task.DoesNotExist:
@@ -691,6 +691,6 @@ class TaskCancelAPIView(APIView):
     )
     def post(self, request, uuid):
         task_service = TaskService(context=request.context,
-                                   auth_entity=request.user) if settings.USE_AUTH else TaskService()
+                                   auth_entity=request.user)
         task_service.cancel_task(uuid)
         return Response(status=status.HTTP_202_ACCEPTED)
