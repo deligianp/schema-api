@@ -183,7 +183,7 @@ class RedisExecutionManager(BaseExecutionManager):
 
         return status_updates
 
-    def __init__(self, host: str, port: int = 6379):
+    def __init__(self, *, host: str, port: int = 6379):
         self.host = host
         self.port = port
         self.client = self._create_client()
