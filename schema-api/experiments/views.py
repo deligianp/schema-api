@@ -440,7 +440,7 @@ class ExperimentTasksAPIView(APIView):
             raise ApplicationValidationError('No task UUIDs were provided in request body')
 
         task_uuids = set(request.data)
-        task_service = TaskService(context=request.context)
+        task_service = TaskService(context=request.context, auth_entity=creator)
 
         tasks = task_service.get_tasks().filter(uuid__in=task_uuids)
         if len(task_uuids) != len(tasks):
