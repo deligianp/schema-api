@@ -26,7 +26,7 @@ COPY --from=build /venv /venv
 
 ENV PATH="/venv/bin:$PATH"
 
-RUN pip3 uninstall -y pyopenssl cryptography pyasn1 cffi && pip3 install --no-cache-dir pyopenssl cryptography pyasn1 cffi
+RUN pip3 uninstall -y pyopenssl cryptography pyasn1 cffi psycopg2-binary && pip3 install --no-cache-dir pyopenssl cryptography pyasn1 cffi psycopg2-binary
 
 WORKDIR /schema-api
 
