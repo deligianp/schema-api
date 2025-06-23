@@ -272,21 +272,21 @@ class WorkflowStatusLogService:
         if avoid_duplicates:
             try:
                 workflow_status_log, created = WorkflowStatusLog.objects.get_or_create(
-                    workflow=self.workflow, value=status, defaults={
+                    workflow=self.workflow, status=status, defaults={
                         **optional,
                         "workflow": self.workflow,
-                        "value": status
+                        "status": status
                     }
                 )
                 return workflow_status_log
             except MultipleObjectsReturned:
-                return WorkflowStatusLog.objects.filter(workflow=self.workflow, value=status).order_by(
+                return WorkflowStatusLog.objects.filter(workflow=self.workflow, status=status).order_by(
                     '-created_at').first()
         else:
-            return WorkflowStatusLog.objects.create(workflow=self.workflow, value=status, **optional)
+            return WorkflowStatusLog.objects.create(workflow=self.workflow, status=status, **optional)
 
     def get_current_status(self) -> WorkflowStatusLog:
-        return WorkflowStatusLog.objects.filter(workflow=self.workflow).order_by('-value', '-created_at').first()
+        return WorkflowStatusLog.objects.filter(workflow=self.workflow).order_by('-status', '-created_at').first()
 
     def is_workflow_pending(self) -> bool:
         current_status = self.get_current_status()

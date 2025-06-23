@@ -60,7 +60,7 @@ class WorkflowResourceSetSerializer(serializers.ModelSerializer):
 
 
 class WorkflowStatusLogSerializer(serializers.Serializer):
-    status = serializers.CharField(read_only=True, source='get_value_display')
+    status = serializers.CharField(read_only=True, source='get_status_display')
     updated_at = serializers.DateTimeField(read_only=True, source='created_at')
 
 
