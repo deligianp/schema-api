@@ -4,6 +4,7 @@ from django.db import models
 
 from api.models import Task, Context
 from util.defaults import get_current_datetime
+from workflows.models import Workflow
 
 
 # Create your models here.
@@ -15,6 +16,7 @@ class Experiment(models.Model):
     creator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
 
     tasks = models.ManyToManyField(Task, blank=True)
+    workflows = models.ManyToManyField(Workflow, blank=True)
 
     def clean(self):
         if self.description is None:
