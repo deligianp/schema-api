@@ -9,6 +9,7 @@ from api.models import Context, Task
 from experiments.models import Experiment
 from util.exceptions import ApplicationValidationError, ApplicationDuplicateError, ApplicationNotFoundError, \
     ApplicationImplicitPermissionError
+from workflows.models import Workflow
 
 
 class ExperimentService:
@@ -89,6 +90,22 @@ class ExperimentTaskService:
                 f'Task "{non_context_task_set.pop().uuid}" is not a part of the experiment\'s context'
             )
         self.experiment.tasks.set(tasks)
+
+    def get_tasks(self) -> QuerySet[Task]:
+        return self.experiment.tasks.all()
+
+
+class ExperimentWorkflowService:
+
+    def __init__(self, workflows: Iterable[Workflow]):
+        workflow_set = set(workflows)
+        context_workflow_set = set(Workflow.objects.filter(context=self.experiment.context))
+        non_context_workflow_set = workflow_set.difference(context_workflow_set)
+        if len(non_context_workflow_set) > 0:
+            raise ApplicationImplicitPermissionError(
+                f'Workflow "{non_context_workflow_set.pop().uuid}" is not a part of the experiment\'s context'
+            )
+        self.experiment.tasks.set(workflows)
 
     def get_tasks(self) -> QuerySet[Task]:
         return self.experiment.tasks.all()
