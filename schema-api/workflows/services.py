@@ -13,7 +13,7 @@ from api.constants import TaskStatus
 from api.models import Context
 from core.managers.base import UserInfo, ExecutionDetails, ExecutionManifest
 from core.utils import drop_none_values, get_manager
-from util.exceptions import ApplicationWorkflowParsingError
+from util.exceptions import ApplicationWorkflowParsingError, ApplicationError
 from workflows.constants import WorkflowLanguages
 from workflows.models import Workflow, WorkflowExecutor, WorkflowExecutorYield, WorkflowEnv, WorkflowInputMountPoint, \
     WorkflowOutputMountPoint, WorkflowResourceSet, WorkflowTag, WorkflowStatusLog, WorkflowDefinition
@@ -114,8 +114,8 @@ class WorkflowService:
 
         workflow_manager_data, workflow_manager_name = get_qualified_workflow_manager(language, version)
 
-        if not workflow_manager_name:
-            raise ApplicationWorkflowParsingError(
+        if not settings.DISABLE_TASK_SCHEDULING and not workflow_manager_name:
+            raise ApplicationError(
                 f'No proper managers are defined for the provided workflow specification: {language}'
                 + f' v.{version}' if version else ''
             )
@@ -171,25 +171,26 @@ class WorkflowService:
         # Evaluate quotas
         workflow_status_log_service.log_status_update(TaskStatus.APPROVED)
 
-        workflow_manager = workflow_manager_data['manager_ref']
-        workflow_manager_use_definition = workflow_manager_data['use_definition']
+        if not settings.DISABLE_TASK_SCHEDULING:
+            workflow_manager = workflow_manager_data['manager_ref']
+            workflow_manager_use_definition = workflow_manager_data['use_definition']
 
-        if workflow_manager_use_definition:
-            execution_manifest = self._construct_execution_manifest(definition=definition, language=language,
-                                                                    version=version)
-        else:
-            # native_definition_json = json.dumps(_workflow_definition)
-            native_definition_json = json.dumps(WorkflowSerializer(workflow).data)
-            execution_manifest = self._construct_execution_manifest(definition=native_definition_json,
-                                                                    language=language, version=version)
+            if workflow_manager_use_definition:
+                execution_manifest = self._construct_execution_manifest(definition=definition, language=language,
+                                                                        version=version)
+            else:
+                # native_definition_json = json.dumps(_workflow_definition)
+                native_definition_json = json.dumps(WorkflowSerializer(workflow).data)
+                execution_manifest = self._construct_execution_manifest(definition=native_definition_json,
+                                                                        language=language, version=version)
 
-        execution_uuid = workflow_manager.submit(execution_manifest)
+            execution_uuid = workflow_manager.submit(execution_manifest)
 
-        workflow.backend_ref = execution_uuid
-        workflow.manager_name = workflow_manager_name
+            workflow.backend_ref = execution_uuid
+            workflow.manager_name = workflow_manager_name
+
+            workflow_status_log_service.log_status_update(TaskStatus.QUEUED)
         workflow.save()
-
-        workflow_status_log_service.log_status_update(TaskStatus.QUEUED)
 
         workflow.refresh_from_db()
 

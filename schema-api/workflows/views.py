@@ -54,7 +54,7 @@ class WorkflowsAPIView(APIView):
         validated = workflow_executor_serializer.validated_data
 
         ws = WorkflowService(request.user, request.context)
-        workflow= ws.submit_workflow(**validated)
+        workflow = ws.submit_workflow(**validated)
 
         return Response(status=status.HTTP_201_CREATED, data=WorkflowSerializer(workflow).data)
 
