@@ -1119,45 +1119,6 @@ class ContextParticipationTokenDetailsAPIView(APIView):
                 },
                 request_only=True,
                 response_only=False
-            ),
-            OpenApiExample(
-                'valid-update-participation-token-request-1',
-                summary='Extend participation token\'s expiry by a certain duration',
-                value={
-                    'extend_duration': '2 months'
-                },
-                request_only=True,
-                response_only=False
-            ),
-            OpenApiExample(
-                'valid-update-participation-token-request-2',
-                summary='Update participation token\'s expiry to a certain timestamp',
-                value={
-                    'expiry': '2024-04-03T02:01:00'
-                },
-                request_only=True,
-                response_only=False
-            ),
-            OpenApiExample(
-                'valid-update-participation-token-request-3',
-                summary='Update participation token\'s title extend expiry by a certain duration',
-                value={
-                    'title': 'New token title',
-                    'extend_duration': '2 months'
-                },
-                request_only=True,
-                response_only=False
-            ),
-            OpenApiExample(
-                'valid-update-participation-token-request-4',
-                summary='Update participation token\'s title and expiry, overriding extend_duration',
-                value={
-                    'title': 'New token title',
-                    'extend_duration': '2 months',
-                    'expiry': '2024-04-03T02:01:00'
-                },
-                request_only=True,
-                response_only=False
             )
         ],
         responses={

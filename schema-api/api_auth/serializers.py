@@ -90,4 +90,5 @@ class ApiTokenIssuedSerializer(ApiTokenDetailsSerializer):
 
 class ApiTokenUpdateSerializer(ApiTokenCreateSerializer):
     duration = None
-    extend_duration = serializers.CharField(required=False)
+    # extend_duration = serializers.CharField(required=False)
+    expiry = None
