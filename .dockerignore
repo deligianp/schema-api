@@ -10,3 +10,5 @@ deployment/
 schema-api/**/tests/
 **/__pycache__
 **.sqlite3
+
+schema-api/.env
