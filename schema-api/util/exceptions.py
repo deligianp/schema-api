@@ -2,6 +2,7 @@ import rest_framework
 from django.conf import settings
 from django.core.exceptions import ValidationError, NON_FIELD_ERRORS
 from rest_framework import serializers, status
+from rest_framework.response import Response
 from rest_framework.views import exception_handler
 from quotas.exceptions import custom_exception_handler as quotas_exception_handler, QuotaViolationError
 
@@ -37,6 +38,15 @@ class ApplicationTaskQuotaExceedingRequestError(ApplicationTaskQuotaError):
 
 
 class ApplicationDuplicateError(ApplicationValidationError):
+    pass
+
+class ApplicationInactiveTokenError(ApplicationError):
+    pass
+
+class ApplicationExpiredTokenError(ApplicationError):
+    pass
+
+class ApplicationInvalidTokenError(ApplicationError):
     pass
 
 
@@ -166,6 +176,8 @@ def custom_exception_handler(exc: Exception, context):
         response = exception_handler(rest_framework.exceptions.NotFound(detail=exc), context)
     elif issubclass(type(exc), QuotaViolationError):
         response = quotas_exception_handler(exc, context)
+    elif issubclass(type(exc), ApplicationImplicitPermissionError):
+        response = Response(status=status.HTTP_409_CONFLICT, data={"detail": str(exc)})
     else:
         response = exception_handler(exc, context)
     return response

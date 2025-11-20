@@ -5,6 +5,7 @@ from django.utils.translation import gettext_lazy as _
 
 from api_auth.models import ApiToken
 from api_auth.services import ApiTokenService
+from util.exceptions import ApplicationInvalidTokenError, ApplicationExpiredTokenError, ApplicationInactiveTokenError
 
 
 class ApiTokenAuthentication(BaseAuthentication):
@@ -28,8 +29,12 @@ class ApiTokenAuthentication(BaseAuthentication):
         token = header[1].decode('utf-8')
         try:
             authenticated = ApiTokenService.authenticate(token)
-        except (ApiToken.DoesNotExist, ValueError):
-            raise exceptions.AuthenticationFailed('Invalid token')
+        except ApplicationInvalidTokenError as e:
+            raise exceptions.AuthenticationFailed({'message': 'API key is invalid', 'reason': 'invalid'}) from e
+        except ApplicationExpiredTokenError as e:
+            raise exceptions.AuthenticationFailed({'message': 'API key has expired', 'reason': 'expired'}) from e
+        except ApplicationInactiveTokenError as e:
+            raise exceptions.AuthenticationFailed({'message': 'API key has been disabled', 'reason': 'disabled'}) from e
 
         if authenticated[1] is not None:
             user = authenticated[1].user

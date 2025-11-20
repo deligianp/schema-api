@@ -15,7 +15,8 @@ from api_auth.constants import AuthEntityType
 from api_auth.models import UserProfile, ApiToken, AuthEntity
 from util.datetime import parse_duration
 from util.exceptions import ApplicationErrorHelper, ApplicationNotFoundError, ApplicationValidationError, \
-    ApplicationError, ApplicationDuplicateError
+    ApplicationError, ApplicationDuplicateError, ApplicationInvalidTokenError, ApplicationInactiveTokenError, \
+    ApplicationExpiredTokenError
 from util.services import BaseService
 
 
@@ -238,7 +239,15 @@ class ApiTokenService(BaseService):
     def authenticate(token: str) -> Union[Tuple[AuthEntity, None], Tuple[None, Participation]]:
         target_digest = ApiTokenService._hash_token(token)
         target_key = token[:settings.TOKEN_KEY_LENGTH]
-        api_token = ApiToken.objects.filter(key=target_key, is_active=True, expiry__gt=timezone.now()).get(digest=target_digest)
+        try:
+            api_token = ApiToken.objects.filter(key=target_key).get(digest=target_digest)
+        except ApiToken.DoesNotExist as atdne:
+            raise ApplicationInvalidTokenError from atdne
+        if not api_token.is_active:
+            raise ApplicationInactiveTokenError('API token has been invalidated')
+        if api_token.expiry < timezone.now():
+            raise ApplicationExpiredTokenError('API token has expired')
+
         return api_token.auth_entity, api_token.participation
 
     def __init__(self, auth_entity: AuthEntity, context: Context = None):
