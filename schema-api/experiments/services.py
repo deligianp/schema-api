@@ -5,11 +5,14 @@ from django.core.exceptions import ValidationError
 from django.db import transaction, IntegrityError
 from django.db.models import QuerySet
 
+from api.constants import TaskStatus
 from api.models import Context, Task
+from api.services import TaskStatusLogService
 from experiments.models import Experiment
 from util.exceptions import ApplicationValidationError, ApplicationDuplicateError, ApplicationNotFoundError, \
     ApplicationImplicitPermissionError
 from workflows.models import Workflow
+from workflows.services import WorkflowStatusLogService
 
 
 class ExperimentService:
@@ -83,11 +86,16 @@ class ExperimentTaskService:
     @transaction.atomic
     def set_tasks(self, tasks: Iterable[Task]):
         task_set = set(tasks)
-        context_task_set = set(Task.objects.filter(context=self.experiment.context))
-        non_context_task_set = task_set.difference(context_task_set)
-        if len(non_context_task_set) > 0:
+        context_completed_task_set = set(
+            TaskStatusLogService.filter_tasks_by_status(
+                Task.objects.filter(context=self.experiment.context), [TaskStatus.COMPLETED]
+            )
+        )
+        non_context_or_incomplete_task_set = task_set.difference(context_completed_task_set)
+        if len(non_context_or_incomplete_task_set) > 0:
             raise ApplicationImplicitPermissionError(
-                f'Task "{non_context_task_set.pop().uuid}" is not a part of the experiment\'s context'
+                f'Task "{non_context_or_incomplete_task_set.pop().uuid}" is not a completed task within the'
+                f' experiment\'s context'
             )
         self.experiment.tasks.set(tasks)
 
@@ -97,15 +105,24 @@ class ExperimentTaskService:
 
 class ExperimentWorkflowService:
 
-    def __init__(self, workflows: Iterable[Workflow]):
-        workflow_set = set(workflows)
-        context_workflow_set = set(Workflow.objects.filter(context=self.experiment.context))
-        non_context_workflow_set = workflow_set.difference(context_workflow_set)
-        if len(non_context_workflow_set) > 0:
-            raise ApplicationImplicitPermissionError(
-                f'Workflow "{non_context_workflow_set.pop().uuid}" is not a part of the experiment\'s context'
-            )
-        self.experiment.tasks.set(workflows)
+    def __init__(self, experiment: Experiment):
+        self.experiment = experiment
 
-    def get_tasks(self) -> QuerySet[Task]:
-        return self.experiment.tasks.all()
+    @transaction.atomic
+    def set_workflows(self, workflows: Iterable[Task]):
+        workflow_set = set(workflows)
+        context_completed_workflow_set = set(
+            WorkflowStatusLogService.filter_workflows_by_status(
+                Workflow.objects.filter(context=self.experiment.context),[TaskStatus.COMPLETED]
+            )
+        )
+        non_context_or_incomplete_workflow_set = workflow_set.difference(context_completed_workflow_set)
+        if len(non_context_or_incomplete_workflow_set) > 0:
+            raise ApplicationImplicitPermissionError(
+                f'Workflow "{non_context_or_incomplete_workflow_set.pop().uuid}" is not a completed workflow within the'
+                f' experiment\'s context'
+            )
+        self.experiment.workflows.set(workflows)
+
+    def get_workflows(self) -> QuerySet[Task]:
+        return self.experiment.workflows.all()
